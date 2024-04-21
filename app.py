@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_mail import Mail, Message
 import os
-from flask_cors import CORS
+from flask_cors import CORS, cross_origin
 import mysql.connector
 from mysql.connector import errorcode
 from dotenv import load_dotenv
@@ -256,6 +256,8 @@ def get_student_total_bills():
       database='svfc_finance'
     )
     data = request.get_json()
+    if not data.get('student_number'):
+      return jsonify({'error': 'Student number is required'}), 400
     student_number = data.get('student_number')
 
     with db_connection.cursor() as cursor:
@@ -266,7 +268,6 @@ def get_student_total_bills():
     total_bills = 0
     for row in rows:
       total_bills += row[4]
-
 
     return jsonify({'total_bill': total_bills}), 200
   
@@ -340,6 +341,50 @@ def get_student_bills():
   finally:
     db_connection.close()
 
+
+@app.route('/api-svfc-get-student-transactions', methods=['POST'])
+def get_student_transaction():
+  try:
+    db_connection = mysql.connector.connect(
+        user=os.getenv('USER'),
+        password=os.getenv('PASSWORD'),
+        port=os.getenv('PORT'),
+        database='svfc_finance'
+    )
+    data = request.get_json()
+    student_number = data.get('student_number')
+    print('Received student number:', student_number)
+
+    with db_connection.cursor() as cursor:
+      query = "SELECT b.bills_id, p.payment_date, p.amount, b.semester, pm.payment_method_type FROM payments_table p JOIN bills_table b ON p.bill_id = b.bills_id JOIN payment_method pm ON p.payment_method_id = pm.payment_method_id WHERE b.student_number = %s"
+      cursor.execute(query, (student_number,))
+      rows = cursor.fetchall()
+
+    transactions = []
+    time.sleep(2)
+    for row in rows:
+      transactions.append({
+        'bill_id': row[0],
+        'payment_date': row[1].isoformat(),
+        'amount': row[2],
+        'semester': row[3],
+        'payment_method': row[4]
+      })
+
+    return jsonify({'transactions': transactions}), 200
+  except mysql.connector.Error as err:
+    if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
+      return jsonify({'error': 'Invalid credentials'}), 401
+    elif err.errno == errorcode.ER_BAD_DB_ERROR:
+      return jsonify({'error': 'Database does not exist'}), 404
+    else:
+          error_info = {
+            'error': 'Database error',
+            'message': str(err.msg) if hasattr(err, 'msg') else 'Unknown error'
+          }
+          return jsonify(error_info), 500
+  except Exception as e:
+    return jsonify({'error': 'Something went wrong', 'info': e}), 500
 
 
 if __name__ == '__main__':

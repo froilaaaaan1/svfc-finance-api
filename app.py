@@ -97,17 +97,20 @@ def fetch_semesters():
       port=3306,
       database='svfc_finance'
     )
-
+  
     # Get student number from request data
     data = request.get_json()
     student_number = data.get('student_number')
-
+    
     # Query to fetch semesters without bills for the selected student
     with db_connection.cursor() as cursor:
       query = "SELECT DISTINCT semester FROM bills_table WHERE student_number = %s"
       cursor.execute(query, (student_number,))
-      semesters_with_bills = {row['semester'] for row in cursor.fetchall()}
-
+      rows = cursor.fetchall()
+    
+    # Extract semesters from query results
+    semesters_with_bills = {row[0] for row in rows}  # Assuming 'semester' is the first column in the result tuple
+    
     # Define all possible semesters
     all_semesters = [
       '1st year 1st sem', '1st year 2nd sem',
@@ -116,14 +119,15 @@ def fetch_semesters():
       '4th year 1st sem', '4th year 2nd sem',
       '5th year 1st sem', '5th year 2nd sem'
     ]
-
+    
     # Find semesters without bills
     semesters_without_bills = list(set(all_semesters) - semesters_with_bills)
-
+    
     # Prepare response
     options = [{'semester': semester} for semester in semesters_without_bills]
-
+    
     return jsonify(options), 200
+
 
   except Exception as e:
     print(e)
@@ -136,6 +140,7 @@ def fetch_semesters():
 def post_student_bill():
   try:
     UNIT_RATE = 700
+    unit_total = 0
     data = request.get_json()
     student_number = data.get('student_number')
     number_of_units = data.get('number_of_units')
@@ -158,7 +163,6 @@ def post_student_bill():
     insurance = data.get('insurance')
     students_development_programs_activities = data.get('students_development_programs_activities')
     misc_fees = data.get('misc_fees', [])
-
     
     item_data = {
       'internet_connectivity': internet_connectivity,
@@ -179,7 +183,6 @@ def post_student_bill():
       'insurance': insurance,
       'students_development_programs_activities': students_development_programs_activities
     }
-    
 
     if misc_fees:
       for item in misc_fees:
@@ -197,21 +200,37 @@ def post_student_bill():
     )
     cursor = db_connection.cursor()
 
-    unit_cost = number_of_units * UNIT_RATE
+    # Additional Check if the semester is already billed
+    query = "SELECT DISTINCT semester FROM bills_table WHERE student_number = %s"
+    cursor.execute(query, (student_number,))
+    rows = cursor.fetchall()
+    semesters_with_bills = {row[0] for row in rows}
+    if semester in semesters_with_bills:
+      return jsonify({'error': 'Semester already billed.'}), 400
+
+    unit_total = int(number_of_units) * 700
     other_fees_total = sum(int(item[1]) for item in data.items() if item[0] != 'student_number' and item[0] != 'number_of_units' and item[0] != 'misc_fees' and item[0] != 'semester')
     misc_total = sum(int(item['amount']) for item in misc_fees)
-    grand_total = other_fees_total + misc_total + unit_cost
-
-    insert_in_bills_table_statement = "INSERT INTO bills_table(student_number, semester, total_amount) VALUES(%s, %s, %s)"
-    insert_in_bill_items_table_statement = "INSERT INTO bill_items_table (bill_id, item_name, amount, remarks) VALUES (%s, %s, %s, %s)"
-    cursor.execute(insert_in_bills_table_statement, (student_number, semester, grand_total))
-    for item in misc_fees:
-      cursor.execute(insert_in_bill_items_table_statement, (cursor.lastrowid, 'misc', item['amount'], item['remarks']))
+    grand_total = other_fees_total + misc_total + unit_total
     
+    # Insert bill into bills_table
+    insert_in_bills_table_statement = "INSERT INTO bills_table(student_number, semester, total_amount) VALUES(%s, %s, %s)"
+    cursor.execute(insert_in_bills_table_statement, (student_number, semester, grand_total))
+    bill_id = cursor.lastrowid  # Get the auto-generated bill_id
+    
+    insert_in_bill_items_table_statement = "INSERT INTO bill_items_table (bill_id, item_name, amount, remarks) VALUES (%s, %s, %s, %s)"
+    for item in misc_fees:
+      cursor.execute(insert_in_bill_items_table_statement, (bill_id, 'misc', int(item['amount']), item['remarks']))
+    
+    # Insert other items into bill_items_table
+    item_data = {key: value for key, value in data.items() if key not in ['student_number', 'number_of_units', 'misc_fees', 'semester']}
     for item_name, amount in item_data.items():
-      cursor.execute(insert_in_bill_items_table_statement, (cursor.lastrowid, item_name, amount, ''))
+      cursor.execute(insert_in_bill_items_table_statement, (bill_id, item_name, int(amount), ''))
+    
+    # Commit changes and close cursor
     db_connection.commit()
     cursor.close()
+    
     return jsonify({'message': 'Bill inserted successfully.'}), 200
     
   except mysql.connector.Error as err:

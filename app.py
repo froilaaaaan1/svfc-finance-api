@@ -244,6 +244,103 @@ def post_student_bill():
   except Exception as e:
     print(e)
     return jsonify({'error': 'Something went wrong'}), 500
+  
+
+@app.route('/api-svfc-total-student-bills', methods=['POST'])
+def get_student_total_bills():
+  try:
+    db_connection = mysql.connector.connect(
+      user=os.getenv('USER'),
+      password=os.getenv('PASSWORD'),
+      port=os.getenv('PORT'),
+      database='svfc_finance'
+    )
+    data = request.get_json()
+    student_number = data.get('student_number')
+
+    with db_connection.cursor() as cursor:
+      query = "SELECT * FROM bills_table WHERE student_number = %s"
+      cursor.execute(query, (student_number,))
+      rows = cursor.fetchall()
+
+    total_bills = 0
+    for row in rows:
+      total_bills += row[4]
+
+
+    return jsonify({'total_bill': total_bills}), 200
+  
+  except mysql.connector.Error as err:
+    if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
+      return jsonify({'error': 'Invalid credentials'}), 401
+    elif err.errno == errorcode.ER_BAD_DB_ERROR:
+      return jsonify({'error': 'Database does not exist'}), 404
+    else:
+      return jsonify({'error': 'Something went wrong', 'info': err}), 500
+  except Exception as e:
+    return jsonify({'error': 'Something went wrong', 'info': e}), 500
+  finally:
+    db_connection.close()
+
+
+@app.route('/api-svfc-get-student-bills', methods=['POST'])
+def get_student_bills():
+  try:
+    db_connection = mysql.connector.connect(
+      user=os.getenv('USER'),
+      password=os.getenv('PASSWORD'),
+      port=os.getenv('PORT'),
+      database='svfc_finance'
+    )
+    data = request.get_json()
+    student_number = data.get('student_number')
+
+    with db_connection.cursor() as cursor:
+      query = "SELECT * FROM bills_table WHERE student_number = %s"
+      cursor.execute(query, (student_number,))
+      rows = cursor.fetchall()
+
+    bills = []
+    for row in rows:
+      bill_id = row[0]
+      semester = row[2]
+      total_amount = row[3]
+
+      with db_connection.cursor() as cursor:
+        query = "SELECT * FROM bill_items_table WHERE bill_id = %s"
+        cursor.execute(query, (bill_id,))
+        items = cursor.fetchall()
+      
+      bill_items = []
+      for item in items:
+        bill_items.append({
+          'item_name': item[2],
+          'amount': item[3],
+          'remarks': item[4]
+        })
+      
+      bills.append({
+        'bill_id': bill_id,
+        'semester': semester,
+        'total_amount': total_amount,
+        'items': bill_items
+      })
+
+    return jsonify({'bills': bills}), 200
+  
+  except mysql.connector.Error as err:
+    if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
+      return jsonify({'error': 'Invalid credentials'}), 401
+    elif err.errno == errorcode.ER_BAD_DB_ERROR:
+      return jsonify({'error': 'Database does not exist'}), 404
+    else:
+      return jsonify({'error': 'Something went wrong'}), 500
+  except Exception as e:
+    return jsonify({'error': 'Something went wrong'}), 500
+  finally:
+    db_connection.close()
+
+
 
 if __name__ == '__main__':
 	app.run(debug=True)

@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, render_template, request, jsonify
 from flask_mail import Mail, Message
 import os
 from flask_cors import CORS
@@ -343,6 +343,17 @@ def get_student_transaction():
   except Exception as e:
     return jsonify({'error': 'Something went wrong', 'info': e}), 500
 
+@app.route('/payment/bank', methods=['POST'])
+def bank():
+  render_template('bank.html')
+
+@app.route('/payment/creditcard', methods=['POST'])
+def credit_card():
+  render_template('creditcard.html')
+
+@app.route('/payment/gcash', methods=['POST'])
+def gcash():
+  render_template('gcash.html')
 
 if __name__ == '__main__':
 	app.run(debug=True)

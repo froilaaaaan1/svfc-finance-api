@@ -351,9 +351,9 @@ def bank():
 def credit_card():
   render_template('creditcard.html')
 
-@app.route('/payment/gcash', methods=['POST'])
+@app.route('/payment/gcash', methods=['GET'])
 def gcash():
-  render_template('gcash.html')
+  return render_template('./gcash.html')
 
 if __name__ == '__main__':
 	app.run(debug=True)

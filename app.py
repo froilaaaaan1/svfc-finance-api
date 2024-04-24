@@ -315,14 +315,13 @@ def get_student_transaction():
     data = request.get_json()
     student_number = data.get('student_number')
     with db_connection.cursor() as cursor:
-      query = "SELECT b.bills_id, p.payment_date, p.amount, b.semester, pm.payment_method_type FROM payments_table p JOIN bills_table b ON p.bill_id = b.bills_id JOIN payment_method pm ON p.payment_method_id = pm.payment_method_id WHERE b.student_number = %s"
+      query = "SELECT p.payment_id, p.payment_date, p.amount, b.semester, pm.payment_method_type FROM payments_table p JOIN bills_table b ON p.bill_id = b.bills_id JOIN payment_method pm ON p.payment_method_id = pm.payment_method_id WHERE b.student_number = %s"
       cursor.execute(query, (student_number,))
       rows = cursor.fetchall()
     transactions = []
-    time.sleep(2)
     for row in rows:
       transactions.append({
-        'bill_id': row[0],
+        'payment_id': row[0],
         'payment_date': row[1].isoformat(),
         'amount': row[2],
         'semester': row[3],
@@ -343,17 +342,64 @@ def get_student_transaction():
   except Exception as e:
     return jsonify({'error': 'Something went wrong', 'info': e}), 500
 
+
+@app.route('/submit-payment', methods=['POST'])
+def submit_payment():
+  try:
+    data = request.get_json()
+    bill_id = data.get('bill_id')
+    payment_method_name = data.get('payment_method_name')
+    amount_paid = data.get('amount_paid')
+    if not bill_id or not payment_method_name or not amount_paid:
+      return jsonify({'error': 'Missing Fields Detected.'}), 400
+    db_connection = mysql.connector.connect(
+      user=os.getenv('USER'),
+      password=os.getenv('PASSWORD'),
+      port=os.getenv('PORT'),
+      database='svfc_finance'
+    )
+    cursor = db_connection.cursor()
+    query = "SELECT payment_method_id FROM payment_method WHERE payment_method_type = %s"
+    cursor.execute(query, (payment_method_name,))
+    payment_method_id = cursor.fetchone()[0]
+    insert_in_payments_table_statement = "INSERT INTO payments_table(bill_id, payment_date, amount, payment_method_id) VALUES(%s, NOW(), %s, %s)"
+    cursor.execute(insert_in_payments_table_statement, (bill_id, amount_paid, payment_method_id))
+    update_bills_table_statement = "UPDATE bills_table SET total_amount = total_amount - %s WHERE bills_id = %s"
+    cursor.execute(update_bills_table_statement, (amount_paid, bill_id))
+    db_connection.commit()
+    cursor.close()
+    return jsonify({'message': 'Payment inserted successfully.'}), 200
+  
+  except mysql.connector.Error as err:
+    if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
+      return jsonify({'error': 'Invalid credentials'}), 401
+    elif err.errno == errorcode.ER_BAD_DB_ERROR:
+      return jsonify({'error': 'Database does not exist'}), 404
+    else:
+      return jsonify({'error': 'Something went wrong'}), 500
+  except Exception as e:
+    print(e)
+    return jsonify({'error': 'Something went wrong'}), 500
+
 @app.route('/payment/bank', methods=['POST'])
 def bank():
-  render_template('bank.html')
+  return render_template('bank.html')
 
 @app.route('/payment/creditcard', methods=['POST'])
 def credit_card():
-  render_template('creditcard.html')
+  return render_template('creditcard.html')
 
-@app.route('/payment/gcash', methods=['GET'])
+@app.route('/payment/gcash', methods=['POST'])
 def gcash():
-  return render_template('./gcash.html')
+  data = request.get_json()
+  bill_id = data.get('bill_id')
+  amount_to_be_paid = data.get('amount_to_be_paid')
+  payment_method = data.get('payment_method')
+  return render_template('gcash.html', bill_id=bill_id, amount_to_be_paid=amount_to_be_paid, payment_method=payment_method)
+
+@app.route('/success', methods=['GET'])
+def success():
+  return render_template('payment_success.html')
 
 if __name__ == '__main__':
 	app.run(debug=True)

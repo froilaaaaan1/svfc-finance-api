@@ -1,3 +1,4 @@
+<!-- return render_template('gcash.html', bill_id=bill_id, amount_to_be_paid=amount_to_be_paid, payment_method=payment_method) -->
 <!DOCTYPE html>
 <html lang="en">
 	<head>
@@ -5,8 +6,12 @@
 		<title>G-Cash Payment</title>
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<script src="https://cdn.tailwindcss.com"></script>
+		<script
+			src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"
+			integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+			crossorigin="anonymous"
+			referrerpolicy="no-referrer"></script>
 		<style>
-			/* Chrome, Safari, Edge, Opera */
 			input::-webkit-outer-spin-button,
 			input::-webkit-inner-spin-button {
 				-webkit-appearance: none;
@@ -126,7 +131,7 @@
 
 					<div>
 						<h1>SVFC Finance Office</h1>
-						<h1 class="text-[#0078ff]">PHP 9,999.99</h1>
+						<h1 class="text-[#0078ff]">PHP {{amount_to_be_paid}}</h1>
 					</div>
 				</div>
 
@@ -247,11 +252,13 @@
 				<h1 class="font-bold text-center text-[#0057e5]">
 					SVFC Finance Office
 				</h1>
+				<input type="hidden" value="{{bill_id}}" name="bill_id" />
+				<input type="hidden" value="{{payment_method}}" name="payment_method" />
 
 				<div class="flex flex-col w-full justify-center">
 					<h1>PAY WITH</h1>
 					<div class="px-3 flex flex-row justify-between items-center">
-						<h1>GCash</h1>
+						<h1 id="payment_method_name">G-Cash</h1>
 						<div class="text-right">
 							<h1>PHP 9,999.99</h1>
 							<h1>Available Balance</h1>
@@ -262,14 +269,14 @@
 						<h1>YOU ARE ABOUT TO PAY</h1>
 						<div class="flex mt-2 flex-row w-full justify-between items-center">
 							<h1 class="text-slate-500">Amount</h1>
-							<h1>PHP 999.00</h1>
+							<h1 id="amount-to-be-paid">{{amount_to_be_paid}}</h1>
 						</div>
 						<div
 							class="border-[1px] border-slate-200 w-full my-5 border-black"></div>
 						<div class="flex flex-row w-full justify-between items-center">
 							<h1 class="font-bold">Total</h1>
 							<h1 class="font-bold">
-								PHP <span class="text-2xl">999.00</span>
+								PHP <span class="text-2xl">{{amount_to_be_paid}}</span>
 							</h1>
 						</div>
 					</div>
@@ -283,7 +290,7 @@
 					id="fourth-next"
 					class="bg-[#0057e5] rounded-full p-3 text-white"
 					type="button">
-					PAY PHP 999.00
+					PAY PHP {{amount_to_be_paid}}
 				</button>
 			</form>
 		</div>
@@ -383,7 +390,26 @@
 				});
 
 				fourthNextButton.addEventListener("click", () => {
-					alert("Payment successful");
+					$.ajax({
+						url: "http://127.0.0.1:5000/submit-payment",
+						type: "POST",
+						contentType: "application/json",
+						data: JSON.stringify({
+							bill_id: document.querySelector('input[name="bill_id"]').value,
+							payment_method_name: document.getElementById(
+								"payment_method_name",
+							).textContent,
+							amount_paid: $("#amount-to-be-paid").text(),
+						}),
+						success: function (response) {
+							console.log(response);
+							alert("Payment successful");
+							window.location.href = "http://127.0.0.1:5000/success";
+						},
+						error: function (error) {
+							console.log(error);
+						},
+					});
 				});
 
 				// if mpin is 4 digits, change the color of the third button

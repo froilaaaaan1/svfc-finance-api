@@ -5,13 +5,90 @@ from flask_cors import CORS
 import mysql.connector
 from mysql.connector import errorcode
 from dotenv import load_dotenv
-import time
+import re
+from datetime import datetime
 
 load_dotenv()
 
 app = Flask(__name__)
 
+
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
+app.config['MAIL_USE_TLS'] = True
+
+mail = Mail(app)
+
 CORS(app)
+
+@app.route('/api/check_card_validity', methods=['POST'])
+def check_card_validity():
+  data = request.get_json()
+  card_number = data.get('card_number', '')
+  expiry_date = data.get('expiry_date', '')
+  cvv = data.get('cvv', '')
+
+  if not is_valid_card_number(card_number): return jsonify({'valid': False, 'message': 'Invalid card number.'}), 400
+
+  if not is_valid_expiry_date(expiry_date): return jsonify({'valid': False, 'message': 'Invalid expiry date. Use MM/YY format.'}), 400
+
+  if not is_valid_cvv(cvv): return jsonify({'valid': False, 'message': 'Invalid CVV. Use 3 or 4 digits.'}), 400
+
+  return jsonify({'valid': True, 'message': 'Card details appear valid.'}), 200
+
+def is_valid_card_number(card_number):
+  return re.match(r'^[0-9]{13,19}$', card_number) is not None
+
+def is_valid_expiry_date(expiry_date):
+  if not re.match(r'^(0[1-9]|1[0-2])\/[0-9]{2}$', expiry_date):
+    return False
+  exp_month, exp_year = map(int, expiry_date.split('/'))
+  expiry_datetime = datetime(year=2000 + exp_year, month=exp_month, day=1)
+  current_datetime = datetime.now()
+  return expiry_datetime > current_datetime
+
+def is_valid_cvv(cvv):
+  return re.match(r'^[0-9]{3,4}$', cvv) is not None
+
+@app.route('/send-receipt', methods=['POST'])
+def send_receipt():
+  try:
+    db_connection = mysql.connector.connect(
+      user=os.getenv('USER'),
+      password=os.getenv('PASSWORD'),
+      port=os.getenv('PORT'),
+      database='svfc_finance'
+    )
+    data = request.get_json()
+    amount = data.get('amount')
+    payment_method_name = data.get('payment_method_name')
+    bill_id = data.get('bill_id')
+    get_bill_info = "SELECT student_number, total_amount, semester, bill_date FROM bills_table WHERE bills_id = %s"
+    with db_connection.cursor() as cursor:
+      cursor.execute(get_bill_info, (bill_id,))
+      bill_info = cursor.fetchone()
+    student_number, total_amount, semester, bill_date = bill_info
+
+    # get student name
+    get_student_info = "SELECT first_name, email, last_name FROM students_table WHERE student_number = %s"
+    cursor.execute(get_student_info, (student_number,))
+    student_info = cursor.fetchone()
+    first_name, last_name = student_info
+    student_email = student_info[1]
+
+    html_email = render_template('send_receipt_template.html', student_name=f'{first_name} {last_name}', student_number=student_number, amount=amount, semester=semester, payment_method_name=payment_method_name, total_amount=total_amount, bill_date=bill_date)
+    
+    msg = Message('SVFC Payment Receipt', sender=os.getenv('MAIL_USERNAME'), recipients=[student_email])
+    msg.html = html_email
+    mail.send(msg)
+
+    return jsonify({'message': 'Email sent successfully.'}), 200
+  except Exception as e:
+    return jsonify({'error': 'Something went wrong'}), 500
+
+
 
 @app.route('/api-svfc-send-feedback', methods=['POST'])
 def send_feedback():
@@ -385,9 +462,13 @@ def submit_payment():
 def bank():
   return render_template('bank.html')
 
-@app.route('/payment/creditcard', methods=['POST'])
-def credit_card():
-  return render_template('creditcard.html')
+@app.route('/payment/card', methods=['POST'])
+def card():
+  data = request.get_json()
+  bill_id = data.get('bill_id')
+  amount_to_be_paid = data.get('amount_to_be_paid')
+  payment_method = data.get('payment_method')
+  return render_template('card.html', bill_id=bill_id, amount_to_be_paid=amount_to_be_paid, payment_method=payment_method)
 
 @app.route('/payment/gcash', methods=['POST'])
 def gcash():

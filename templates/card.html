@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>Credit Card Payment</title>
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0" />
+		<script src="https://cdn.tailwindcss.com"></script>
+		<link
+			rel="preconnect"
+			href="https://fonts.googleapis.com" />
+		<link
+			rel="preconnect"
+			href="https://fonts.gstatic.com"
+			crossorigin />
+		<link
+			href="https://cdn.jsdelivr.net/npm/daisyui@4.10.2/dist/full.min.css"
+			rel="stylesheet"
+			type="text/css" />
+		<script
+			src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"
+			integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+			crossorigin="anonymous"
+			referrerpolicy="no-referrer"></script>
+		<link
+			href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap"
+			rel="stylesheet" />
+		<style>
+			body {
+				font-family: 'Poppins', sans-serif;
+			}
+			input::-webkit-outer-spin-button,
+			input::-webkit-inner-spin-button {
+				-webkit-appearance: none;
+				margin: 0;
+			}
+		</style>
+	</head>
+	<body>
+		<dialog
+			id="card-modal"
+			class="modal modal-bottom sm:modal-middle">
+			<div class="modal-box">
+				<div class="flex flex-row w-full justify-between items-center">
+					<div>
+						<h3 class="font-bold text-lg">Continue with Payment</h3>
+						<p class="py-4">Amount: PHP {{amount_to_be_paid}}</p>
+					</div>
+					<div class="image-card w-1/2 flex justify-end items-center">
+						<img
+							class="card-icon"
+							alt="" />
+					</div>
+				</div>
+				<div class="modal-action">
+					<form
+						id="payment-form"
+						class="w-full flex flex-col gap-5 items-center">
+						<input
+							type="hidden"
+							value="{{amount_to_be_paid}}"
+							id="amount-to-be-paid" />
+						<input
+							type="hidden"
+							value="{{bill_id}}"
+							name="bill_id" />
+
+						<input
+							type="hidden"
+							value="{{payment_method}}"
+							name="payment_method" />
+
+						<label class="form-control w-full max-w-xs">
+							<span class="label-text">CARD NUMBER</span>
+							<input
+								type="text"
+								id="card-number"
+								placeholder="Card Number"
+								class="input input-bordered w-full max-w-xs"
+								pattern="^[0-9]{13,19}$"
+								required />
+						</label>
+						<label class="form-control w-full max-w-xs">
+							<span class="label-text">CVV</span>
+							<input
+								type="text"
+								id="cvv"
+								placeholder="CVV"
+								class="input input-bordered w-full max-w-xs"
+								pattern="^[0-9]{3,4}$"
+								required />
+						</label>
+						<label class="form-control w-full max-w-xs">
+							<span class="label-text">EXPIRY DATE</span>
+							<input
+								type="text"
+								id="expiry-date"
+								placeholder="MM/YY"
+								class="input input-bordered w-full max-w-xs"
+								pattern="^(0[1-9]|1[0-2])\/[0-9]{2}$"
+								required />
+						</label>
+						<button
+							id="confirm-payment"
+							type="button"
+							class="btn btn-success max-w-xs w-full">
+							Proceed to Payment
+						</button>
+						<button
+							id="close_payment"
+							type="button"
+							class="btn btn-error max-w-xs w-full">
+							Cancel
+						</button>
+					</form>
+				</div>
+			</div>
+		</dialog>
+
+		<script>
+			$(document).ready(function () {
+				var card_modal = document.getElementById('card-modal');
+				var card_number = document.getElementById('card-number');
+				var card_image = document.querySelector('.card-icon');
+				$(card_number).on('input', function () {
+					var cardNumber = $(this).val().replace(/\s/g, '');
+					updateCardIcon(cardNumber);
+				});
+
+				const updateCardIcon = (cardNumber) => {
+					if (cardNumber.startsWith('4')) {
+						card_image.src = 'https://img.icons8.com/color/48/000000/visa.png';
+					} else if (cardNumber.startsWith('5')) {
+						card_image.src =
+							'https://img.icons8.com/color/48/000000/mastercard.png';
+					} else if (cardNumber.startsWith('3')) {
+						card_image.src = 'https://img.icons8.com/color/48/000000/amex.png';
+					} else if (cardNumber.startsWith('6')) {
+						card_image.src =
+							'https://img.icons8.com/color/48/000000/discover.png';
+					} else {
+						card_image.src = '';
+					}
+				};
+
+				$('#confirm-payment').on('click', async function () {
+					if (confirm('Proceed with payment?')) {
+						try {
+							const cardValidityResponse = await $.ajax({
+								url: 'http://127.0.0.1:5000/api/check_card_validity',
+								type: 'POST',
+								contentType: 'application/json',
+								data: JSON.stringify({
+									card_number: $('#card-number').val(),
+									expiry_date: $('#expiry-date').val(),
+									cvv: $('#cvv').val(),
+								}),
+							});
+
+							console.log(cardValidityResponse);
+
+							if (cardValidityResponse.valid) {
+								const paymentResponse = await $.ajax({
+									url: 'http://127.0.0.1:5000/submit-payment',
+									type: 'POST',
+									contentType: 'application/json',
+									data: JSON.stringify({
+										bill_id: document.querySelector('input[name="bill_id"]')
+											.value,
+										payment_method_name: 'Credit Card',
+										amount_paid: $('#amount-to-be-paid').val(),
+									}),
+								});
+
+								alert('Payment successful');
+								console.log(paymentResponse);
+								const receiptResponse = await $.ajax({
+									url: 'http://127.0.0.1:5000/send-receipt',
+									type: 'POST',
+									contentType: 'application/json',
+									data: JSON.stringify({
+										amount: $('#amount-to-be-paid').val(),
+										payment_method_name: 'Credit Card',
+										bill_id: document.querySelector('input[name="bill_id"]')
+											.value,
+									}),
+								});
+
+								console.log(receiptResponse);
+							}
+						} catch (error) {
+							// Handle any errors that occur during AJAX requests
+							console.error('An error occurred:', error);
+							alert('Error occurred during payment processing.');
+						}
+					}
+				});
+
+				$('#close_payment').on('click', function () {
+					if (confirm('Cancel payment?')) {
+						card_modal.close();
+						alert('Payment cancelled. You may close this window.');
+						window.close();
+					}
+				});
+
+				$(document).on('keydown', function (e) {
+					if (e.key === 'Escape') {
+						card_modal.close();
+						alert('Payment cancelled. You may close this window.');
+						window.close();
+					}
+				});
+
+				card_modal.showModal();
+			});
+		</script>
+	</body>
+</html>

@@ -7,6 +7,7 @@ from mysql.connector import errorcode
 from dotenv import load_dotenv
 import re
 from datetime import datetime
+import time
 
 load_dotenv()
 
@@ -22,6 +23,75 @@ app.config['MAIL_USE_TLS'] = True
 mail = Mail(app)
 
 CORS(app)
+
+@app.route('/api/get_all_announcements', methods=['GET'])
+def get_all_announcements():
+  try:
+    db_connection = mysql.connector.connect(
+      user=os.getenv('USER'),
+      password=os.getenv('PASSWORD'),
+      port=os.getenv('PORT'),
+      database='svfc_finance'
+    )
+    time.sleep(3)
+    with db_connection.cursor() as cursor:
+      query = "SELECT * FROM admin_announcement"
+      cursor.execute(query)
+      rows = cursor.fetchall()
+    announcements = []
+    for row in rows:
+      announcements.append({
+        'announcement_id': row[0],
+        'title': row[1],
+        'content': row[2],
+        'admin_number': row[3],
+        'created_at': row[4].isoformat()
+      })
+    return jsonify({'announcements': announcements}), 200
+
+  except mysql.connector.Error as err:
+    if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
+      return jsonify({'error': 'Invalid credentials'}), 401
+    elif err.errno == errorcode.ER_BAD_DB_ERROR:
+      return jsonify({'error': 'Database does not exist'}), 404
+    else:
+      return jsonify({'error': 'Something went wrong'}), 500
+  except Exception as e:
+    return jsonify({'error': 'Something went wrong'}), 500
+
+@app.route('/api/create_announcement', methods=['POST'])
+def create_announcement():
+  try:
+    db_connection = mysql.connector.connect(
+      user=os.getenv('USER'),
+      password=os.getenv('PASSWORD'),
+      port=os.getenv('PORT'),
+      database='svfc_finance'
+    )
+    data = request.get_json()
+    title = data.get('title')
+    content = data.get('content')
+    admin_number = data.get('admin_number')
+    print(data)
+  
+    with db_connection.cursor() as cursor:
+      query = "INSERT INTO admin_announcement (title, content, admin_number) VALUES (%s, %s, %s)"
+      cursor.execute(query, (title, content, admin_number))
+    db_connection.commit()
+    return jsonify({'message': 'Announcement created successfully.'}), 200
+
+  except mysql.connector.Error as err:
+    if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
+      return jsonify({'error': 'Invalid credentials'}), 401
+    elif err.errno == errorcode.ER_BAD_DB_ERROR:
+      return jsonify({'error': 'Database does not exist'}), 404
+    else:
+      print(err)
+      return jsonify({'error': 'Something went wrong'}), 500
+  except Exception as e:
+    print(e)
+    return jsonify({'error': 'Something went wrong'}), 500
+
 
 @app.route('/api/check_card_validity', methods=['POST'])
 def check_card_validity():

@@ -66,16 +66,17 @@ def send_receipt():
     payment_method_name = data.get('payment_method_name')
     bill_id = data.get('bill_id')
     get_bill_info = "SELECT student_number, total_amount, semester, bill_date FROM bills_table WHERE bills_id = %s"
-    with db_connection.cursor() as cursor:
-      cursor.execute(get_bill_info, (bill_id,))
-      bill_info = cursor.fetchone()
+    cursor = db_connection.cursor()
+    cursor.execute(get_bill_info, (bill_id,))
+    bill_info = cursor.fetchone()
     student_number, total_amount, semester, bill_date = bill_info
 
     # get student name
-    get_student_info = "SELECT first_name, email, last_name FROM students_table WHERE student_number = %s"
+    get_student_info = "SELECT firstname, email, lastname FROM student_profile_table WHERE student_number = %s"
     cursor.execute(get_student_info, (student_number,))
     student_info = cursor.fetchone()
-    first_name, last_name = student_info
+    first_name = student_info[0]
+    last_name = student_info[2]
     student_email = student_info[1]
 
     html_email = render_template('send_receipt_template.html', student_name=f'{first_name} {last_name}', student_number=student_number, amount=amount, semester=semester, payment_method_name=payment_method_name, total_amount=total_amount, bill_date=bill_date)
@@ -86,6 +87,7 @@ def send_receipt():
 
     return jsonify({'message': 'Email sent successfully.'}), 200
   except Exception as e:
+    print(e)
     return jsonify({'error': 'Something went wrong'}), 500
 
 

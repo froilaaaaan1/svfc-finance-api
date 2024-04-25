@@ -144,56 +144,64 @@
 					}
 				};
 
-				$('#confirm-payment').on('click', async function () {
+				$('#confirm-payment').on('click', function () {
 					if (confirm('Proceed with payment?')) {
-						try {
-							const cardValidityResponse = await $.ajax({
-								url: 'http://127.0.0.1:5000/api/check_card_validity',
-								type: 'POST',
-								contentType: 'application/json',
-								data: JSON.stringify({
-									card_number: $('#card-number').val(),
-									expiry_date: $('#expiry-date').val(),
-									cvv: $('#cvv').val(),
-								}),
-							});
+						$.ajax({
+							url: 'http://127.0.0.1:5000/api/check_card_validity',
+							type: 'POST',
+							contentType: 'application/json',
+							data: JSON.stringify({
+								card_number: $('#card-number').val(),
+								expiry_date: $('#expiry-date').val(),
+								cvv: $('#cvv').val(),
+							}),
+							success: function (response) {
+								console.log(response);
+								if (response.valid) {
+									$.ajax({
+										url: 'http://127.0.0.1:5000/submit-payment',
+										type: 'POST',
+										contentType: 'application/json',
+										data: JSON.stringify({
+											bill_id: document.querySelector('input[name="bill_id"]')
+												.value,
+											payment_method_name: 'Credit Card',
+											amount_paid: $('#amount-to-be-paid').val(),
+										}),
+										success: function (response) {
+											alert('Payment successful');
 
-							console.log(cardValidityResponse);
-
-							if (cardValidityResponse.valid) {
-								const paymentResponse = await $.ajax({
-									url: 'http://127.0.0.1:5000/submit-payment',
-									type: 'POST',
-									contentType: 'application/json',
-									data: JSON.stringify({
-										bill_id: document.querySelector('input[name="bill_id"]')
-											.value,
-										payment_method_name: 'Credit Card',
-										amount_paid: $('#amount-to-be-paid').val(),
-									}),
-								});
-
-								alert('Payment successful');
-								console.log(paymentResponse);
-								const receiptResponse = await $.ajax({
-									url: 'http://127.0.0.1:5000/send-receipt',
-									type: 'POST',
-									contentType: 'application/json',
-									data: JSON.stringify({
-										amount: $('#amount-to-be-paid').val(),
-										payment_method_name: 'Credit Card',
-										bill_id: document.querySelector('input[name="bill_id"]')
-											.value,
-									}),
-								});
-
-								console.log(receiptResponse);
-							}
-						} catch (error) {
-							// Handle any errors that occur during AJAX requests
-							console.error('An error occurred:', error);
-							alert('Error occurred during payment processing.');
-						}
+											$.ajax({
+												url: 'http://127.0.0.1:5000/send-receipt',
+												type: 'POST',
+												contentType: 'application/json',
+												data: JSON.stringify({
+													amount: $('#amount-to-be-paid').val(),
+													payment_method_name: 'Credit Card',
+													bill_id: document.querySelector(
+														'input[name="bill_id"]',
+													).value,
+												}),
+												success: function (response) {
+													alert('Receipt sent to email');
+													window.location.href =
+														'http://127.0.0.1:5000/success';
+												},
+												error: function (error) {
+													console.log(error);
+												},
+											}); // Closing curly brace added here
+										},
+										error: function (error) {
+											console.log(error);
+										},
+									});
+								}
+							},
+							error: function (error) {
+								alert(error.responseJSON.message);
+							},
+						});
 					}
 				});
 

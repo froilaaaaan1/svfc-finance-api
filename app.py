@@ -460,9 +460,68 @@ def submit_payment():
     print(e)
     return jsonify({'error': 'Something went wrong'}), 500
 
-@app.route('/payment/bank', methods=['POST'])
+@app.route('/payment/bank', methods=['GET'])
 def bank():
-  return render_template('bank.html')
+  form_fields = [
+        {
+          'id': 'amount',
+          'label': 'Amount to Pay (PHP)',
+          'type': 'text',
+          'placeholder': 'Amount to Pay (PHP)',
+          'name': 'amount',
+          'required': True
+        },
+        {
+          'id': 'recipient',
+          'label': 'Recipient Name',
+          'type': 'text',
+          'placeholder': 'Recipient Name',
+          'name': 'recipient',
+          'required': True
+        },
+        {
+          'id': 'accountNumber',
+          'label': "Recipient's Account Number",
+          'type': 'text',
+          'placeholder': "Recipient's Account Number",
+          'name': 'accountNumber',
+          'required': True
+        },
+        {
+          'id': 'bankName',
+          'label': "Recipient's Bank Name",
+          'type': 'text',
+          'placeholder': "Recipient's Bank Name",
+          'name': 'bankName',
+          'required': True
+        },
+        {
+          'id': 'paymentReference',
+          'label': 'Payment Reference',
+          'type': 'text',
+          'placeholder': 'Payment Reference',
+          'name': 'paymentReference',
+          'required': True
+        },
+        {
+          'id': 'yourAccountNumber',
+          'label': 'Your Account Number',
+          'type': 'text',
+          'placeholder': 'Your Account Number',
+          'name': 'yourAccountNumber',
+          'required': True
+        },
+        {
+          'id': 'paymentDate',
+          'label': 'Payment Date',
+          'type': 'date',
+          'placeholder': 'Payment Date',
+          'name': 'paymentDate',
+          'required': True
+        }
+        # Add more form fields as needed...
+    ]
+  return render_template('bank.html', form_fields=form_fields)
 
 @app.route('/payment/card', methods=['POST'])
 def card():

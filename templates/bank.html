@@ -3,9 +3,103 @@
 	<head>
 		<meta charset="UTF-8" />
 		<title>Bank Payment</title>
-		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0" />
+		<link
+			href="https://cdn.jsdelivr.net/npm/daisyui@4.10.2/dist/full.min.css"
+			rel="stylesheet"
+			type="text/css" />
+		<script src="https://cdn.tailwindcss.com"></script>
+		<script
+			src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"
+			integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+			crossorigin="anonymous"
+			referrerpolicy="no-referrer"></script>
 	</head>
 	<body>
-		<h1>Bank Payment</h1>
+		<dialog
+			id="bank-modal"
+			class="modal modal-bottom sm:modal-middle">
+			<div class="modal-box">
+				<h3 class="font-bold text-lg">Bank Payment Form</h3>
+				<p class="py-4">
+					Please fill fill out this form to continue with the payment
+				</p>
+				<div class="modal-action">
+					<form
+						class="flex flex-col justify-center items-center w-full gap-5"
+						method="post">
+						{% for field in form_fields %}
+						<label
+							for="{{ field.id }}"
+							class="form-control w-full max-w-md">
+							<div class="label">
+								<span class="label-text">{{ field.label }}</span>
+							</div>
+							<input
+								id="{{ field.id }}"
+								type="{{ field.type }}"
+								placeholder="{{ field.placeholder }}"
+								name="{{ field.name }}"
+								class="input input-bordered w-full max-w-md"
+								{%
+								if
+								field.required
+								%}required{%
+								endif
+								%} />
+						</label>
+						{% endfor %}
+
+						<div class="form-control w-full">
+							<label class="cursor-pointer label">
+								<span class="label-text"
+									>I confirm that the above details are correct.</span
+								>
+								<input
+									type="checkbox"
+									checked="checked"
+									required
+									class="checkbox checkbox-success" />
+							</label>
+						</div>
+
+						<button
+							type="button"
+							class="btn btn-success w-full">
+							Submit Payment
+						</button>
+
+						<button
+							type="button"
+							class="btn btn-ghost w-full">
+							Close
+						</button>
+					</form>
+				</div>
+			</div>
+		</dialog>
+		<script>
+			$(document).ready(function () {
+				const dialog = document.getElementById('bank-modal');
+				const showModalButton = document.getElementById('show-modal');
+				const closeModalButton = document.querySelector(
+					'button[type="button"]',
+				);
+
+				dialog.showModal();
+
+				closeModalButton.addEventListener('click', () => {
+					dialog.close();
+				});
+
+				dialog.addEventListener('keydown', (event) => {
+					if (event.key === 'Escape') {
+						dialog.close();
+					}
+				});
+			});
+		</script>
 	</body>
 </html>

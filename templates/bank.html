@@ -18,6 +18,11 @@
 			referrerpolicy="no-referrer"></script>
 	</head>
 	<body>
+		<div
+			id="container-loading"
+			class="w-full hidden min-h-screen backdrop-blur z-50 flex justify-end items-end p-5">
+			<span class="loading loading-ball loading-lg"></span>
+		</div>
 		<dialog
 			id="bank-modal"
 			class="modal modal-bottom sm:modal-middle">
@@ -30,6 +35,38 @@
 					<form
 						class="flex flex-col justify-center items-center w-full gap-5"
 						method="post">
+						<input
+							type="hidden"
+							value="{{bill_id}}"
+							name="bill_id" />
+						<label class="form-control w-full max-w-md">
+							<div class="label">
+								<span class="label-text">Amount to be paid</span>
+							</div>
+							<input
+								value="{{ amount_to_be_paid }}"
+								id="amount-to-be-paid"
+								type="number"
+								name="amount_to_be_paid"
+								class="input input-bordered w-full max-w-md"
+								disabled
+								required />
+						</label>
+
+						<label class="form-control w-full max-w-md">
+							<div class="label">
+								<span class="label-text">Recipient</span>
+							</div>
+							<input
+								disabled
+								id="recipient"
+								type="text"
+								value="SVFC Finance"
+								name="recipient"
+								class="input input-bordered w-full max-w-md"
+								required />
+						</label>
+
 						{% for field in form_fields %}
 						<label
 							for="{{ field.id }}"
@@ -59,21 +96,23 @@
 								>
 								<input
 									type="checkbox"
-									checked="checked"
 									required
+									id="consent"
 									class="checkbox checkbox-success" />
 							</label>
 						</div>
 
 						<button
 							type="button"
+							id="submit-payment"
 							class="btn btn-success w-full">
 							Submit Payment
 						</button>
 
 						<button
 							type="button"
-							class="btn btn-ghost w-full">
+							id="close_payment"
+							class="btn btn-error w-full">
 							Close
 						</button>
 					</form>
@@ -84,19 +123,69 @@
 			$(document).ready(function () {
 				const dialog = document.getElementById('bank-modal');
 				const showModalButton = document.getElementById('show-modal');
-				const closeModalButton = document.querySelector(
-					'button[type="button"]',
-				);
-
+				const closeModalButton = document.getElementById('close_payment');
+				const consentCheck = document.getElementById('consent');
+				const loading = document.getElementById('container-loading');
+				const cancelTransaction = () => {
+					if (confirm('Cancel payment?')) {
+						dialog.close();
+						alert('Payment cancelled. You may close this window.');
+						window.close();
+					}
+				};
 				dialog.showModal();
-
-				closeModalButton.addEventListener('click', () => {
-					dialog.close();
+				closeModalButton.addEventListener('click', cancelTransaction);
+				$(document).on('keydown', (e) => {
+					if (e.key === 'Escape') cancelTransaction();
 				});
 
-				dialog.addEventListener('keydown', (event) => {
-					if (event.key === 'Escape') {
-						dialog.close();
+				$('#submit-payment').on('click', () => {
+					if (!consentCheck.checked) {
+						alert('Please confirm that the details are correct');
+						return;
+					}
+					if (confirm('Are you sure you want to submit payment?')) {
+						$.ajax({
+							url: 'http://127.0.0.1:5000/submit-payment',
+							type: 'POST',
+							contentType: 'application/json',
+							data: JSON.stringify({
+								bill_id: document.querySelector('input[name="bill_id"]').value,
+								payment_method_name: 'Bank',
+								amount_paid: $('#amount-to-be-paid').val(),
+							}),
+							success: (response) => {
+								loading.classList.add('hidden');
+								$.ajax({
+									url: 'http://127.0.0.1:5000/send-receipt',
+									type: 'POST',
+									contentType: 'application/json',
+									data: JSON.stringify({
+										amount: $('#amount-to-be-paid').val(),
+										payment_method_name: 'Bank',
+										bill_id: document.querySelector('input[name="bill_id"]')
+											.value,
+									}),
+									beforeSend: () => {
+										loading.classList.remove('hidden');
+									},
+									success: (response) => {
+										loading.classList.add('hidden');
+										alert('Receipt sent to email');
+										window.location.href = 'http://127.0.0.1:5000/success';
+									},
+									error: (error) => {
+										loading.classList.add('hidden');
+										console.log(error);
+									},
+								});
+							},
+							error: (error) => {
+								loading.classList.add('hidden');
+								console.log(error);
+							},
+						});
+					} else {
 					}
 				});
 			});

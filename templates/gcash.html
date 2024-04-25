@@ -4,7 +4,9 @@
 	<head>
 		<meta charset="UTF-8" />
 		<title>G-Cash Payment</title>
-		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0" />
 		<script src="https://cdn.tailwindcss.com"></script>
 		<script
 			src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"
@@ -252,8 +254,14 @@
 				<h1 class="font-bold text-center text-[#0057e5]">
 					SVFC Finance Office
 				</h1>
-				<input type="hidden" value="{{bill_id}}" name="bill_id" />
-				<input type="hidden" value="{{payment_method}}" name="payment_method" />
+				<input
+					type="hidden"
+					value="{{bill_id}}"
+					name="bill_id" />
+				<input
+					type="hidden"
+					value="{{payment_method}}"
+					name="payment_method" />
 
 				<div class="flex flex-col w-full justify-center">
 					<h1>PAY WITH</h1>
@@ -300,31 +308,41 @@
 				const firstNextButton = document.querySelector(
 					'button[name="first-next"]',
 				);
-				const secondNextButton = document.getElementById("second-next");
-				const thirdNextButton = document.getElementById("third-next");
-				const fourthNextButton = document.getElementById("fourth-next");
-				const firstForm = document.getElementById("first-form");
-				const secondForm = document.getElementById("second-form");
-				const thirdForm = document.getElementById("third-form");
-				const lastForm = document.getElementById("last-form");
+				const secondNextButton = document.getElementById('second-next');
+				const thirdNextButton = document.getElementById('third-next');
+				const fourthNextButton = document.getElementById('fourth-next');
+				const firstForm = document.getElementById('first-form');
+				const secondForm = document.getElementById('second-form');
+				const thirdForm = document.getElementById('third-form');
+				const lastForm = document.getElementById('last-form');
 				const otpInputs = document.querySelectorAll('input[name^="otp"]');
 				const mpinInput = document.querySelector('input[name="mpin"]');
+				const cancelTransaction = () => {
+					if (confirm('Cancel payment?')) {
+						alert('Payment cancelled. You may close this window.');
+						window.close();
+					}
+				};
 
-				numberInput.addEventListener("input", () => {
+				$(document).on('keydown', (e) => {
+					if (e.key === 'Escape') cancelTransaction();
+				});
+
+				numberInput.addEventListener('input', () => {
 					if (numberInput.value.length === 10) {
 						firstNextButton.disabled = false;
-						firstNextButton.classList.remove("bg-[#9dcbfd]");
-						firstNextButton.classList.add("bg-[#0057e5]");
+						firstNextButton.classList.remove('bg-[#9dcbfd]');
+						firstNextButton.classList.add('bg-[#0057e5]');
 					} else {
 						firstNextButton.disabled = true;
-						firstNextButton.classList.remove("bg-[#0057e5]");
-						firstNextButton.classList.add("bg-[#9dcbfd]");
+						firstNextButton.classList.remove('bg-[#0057e5]');
+						firstNextButton.classList.add('bg-[#9dcbfd]');
 					}
 				});
 
 				otpInputs.forEach((input, index) => {
-					input.addEventListener("keydown", (e) => {
-						if (e.key === "Backspace" && input.value.length === 0) {
+					input.addEventListener('keydown', (e) => {
+						if (e.key === 'Backspace' && input.value.length === 0) {
 							if (index > 0) {
 								otpInputs[index - 1].focus();
 							}
@@ -332,23 +350,23 @@
 					});
 				});
 
-				numberInput.addEventListener("keydown", (e) => {
-					if (numberInput.value.length >= 10 && e.key !== "Backspace") {
+				numberInput.addEventListener('keydown', (e) => {
+					if (numberInput.value.length >= 10 && e.key !== 'Backspace') {
 						e.preventDefault();
 						numberInput.value = numberInput.value.slice(0, 10);
 					}
 				});
 
 				// if the number is valid, show the next form
-				firstNextButton.addEventListener("click", () => {
+				firstNextButton.addEventListener('click', () => {
 					if (numberInput.value.length !== 10) return;
-					document.getElementById("second-form").classList.remove("hidden");
-					document.getElementById("second-form").classList.add("flex");
-					firstForm.classList.add("hidden");
+					document.getElementById('second-form').classList.remove('hidden');
+					document.getElementById('second-form').classList.add('flex');
+					firstForm.classList.add('hidden');
 				});
 
 				otpInputs.forEach((input, index) => {
-					input.addEventListener("input", () => {
+					input.addEventListener('input', () => {
 						if (input.value.length === 1) {
 							if (index < otpInputs.length - 1) {
 								otpInputs[index + 1].focus();
@@ -358,53 +376,70 @@
 				});
 
 				// if the otp digit is 6 change the color of the second button
-				otpInputs[otpInputs.length - 1].addEventListener("input", () => {
+				otpInputs[otpInputs.length - 1].addEventListener('input', () => {
 					const otp = Array.from(otpInputs)
 						.map((input) => input.value)
-						.join("");
+						.join('');
 					if (otp.length === 6) {
 						secondNextButton.disabled = false;
-						secondNextButton.classList.remove("bg-[#9dcbfd]");
-						secondNextButton.classList.add("bg-[#0057e5]");
+						secondNextButton.classList.remove('bg-[#9dcbfd]');
+						secondNextButton.classList.add('bg-[#0057e5]');
 					} else {
 						secondNextButton.disabled = true;
-						secondNextButton.classList.remove("bg-[#0057e5]");
-						secondNextButton.classList.add("bg-[#9dcbfd]");
+						secondNextButton.classList.remove('bg-[#0057e5]');
+						secondNextButton.classList.add('bg-[#9dcbfd]');
 					}
 				});
 
-				secondNextButton.addEventListener("click", () => {
+				secondNextButton.addEventListener('click', () => {
 					const otp = Array.from(otpInputs)
 						.map((input) => input.value)
-						.join("");
+						.join('');
 					if (otp.length !== 6) return;
-					document.getElementById("third-form").classList.remove("hidden");
-					document.getElementById("third-form").classList.add("flex");
-					secondForm.classList.add("hidden");
+					document.getElementById('third-form').classList.remove('hidden');
+					document.getElementById('third-form').classList.add('flex');
+					secondForm.classList.add('hidden');
 				});
 
-				thirdNextButton.addEventListener("click", () => {
-					document.getElementById("last-form").classList.remove("hidden");
-					document.getElementById("last-form").classList.add("flex");
-					thirdForm.classList.add("hidden");
+				thirdNextButton.addEventListener('click', () => {
+					document.getElementById('last-form').classList.remove('hidden');
+					document.getElementById('last-form').classList.add('flex');
+					thirdForm.classList.add('hidden');
 				});
 
-				fourthNextButton.addEventListener("click", () => {
+				fourthNextButton.addEventListener('click', () => {
 					$.ajax({
-						url: "http://127.0.0.1:5000/submit-payment",
-						type: "POST",
-						contentType: "application/json",
+						url: 'http://127.0.0.1:5000/submit-payment',
+						type: 'POST',
+						contentType: 'application/json',
 						data: JSON.stringify({
 							bill_id: document.querySelector('input[name="bill_id"]').value,
 							payment_method_name: document.getElementById(
-								"payment_method_name",
+								'payment_method_name',
 							).textContent,
-							amount_paid: $("#amount-to-be-paid").text(),
+							amount_paid: $('#amount-to-be-paid').text(),
 						}),
 						success: function (response) {
 							console.log(response);
-							alert("Payment successful");
-							window.location.href = "http://127.0.0.1:5000/success";
+							alert('Payment successful');
+							$.ajax({
+								url: 'http://127.0.0.1:5000/send-receipt',
+								type: 'POST',
+								contentType: 'application/json',
+								data: JSON.stringify({
+									amount: $('#amount-to-be-paid').text(),
+									payment_method_name: 'G-Cash',
+									bill_id: document.querySelector('input[name="bill_id"]')
+										.value,
+								}),
+								success: function (response) {
+									alert('Receipt sent to email');
+									window.location.href = 'http://127.0.0.1:5000/success';
+								},
+								error: function (error) {
+									console.log(error);
+								},
+							});
 						},
 						error: function (error) {
 							console.log(error);
@@ -413,25 +448,25 @@
 				});
 
 				// if mpin is 4 digits, change the color of the third button
-				mpinInput.addEventListener("input", () => {
+				mpinInput.addEventListener('input', () => {
 					if (mpinInput.value.length === 4) {
 						thirdNextButton.disabled = false;
-						thirdNextButton.classList.remove("bg-[#9dcbfd]");
-						thirdNextButton.classList.add("bg-[#0057e5]");
+						thirdNextButton.classList.remove('bg-[#9dcbfd]');
+						thirdNextButton.classList.add('bg-[#0057e5]');
 					} else {
 						thirdNextButton.disabled = true;
-						thirdNextButton.classList.remove("bg-[#0057e5]");
-						thirdNextButton.classList.add("bg-[#9dcbfd]");
+						thirdNextButton.classList.remove('bg-[#0057e5]');
+						thirdNextButton.classList.add('bg-[#9dcbfd]');
 					}
 				});
 
-				const resendCode = document.querySelector("h1 span");
+				const resendCode = document.querySelector('h1 span');
 				let seconds = 60;
 				const interval = setInterval(() => {
 					seconds--;
 					if (seconds === 0) {
 						clearInterval(interval);
-						resendCode.textContent = "";
+						resendCode.textContent = '';
 					} else {
 						resendCode.textContent = seconds;
 					}

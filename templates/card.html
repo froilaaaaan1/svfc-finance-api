@@ -38,9 +38,14 @@
 		</style>
 	</head>
 	<body>
+		<div
+			id="container-loading"
+			class="w-full hidden min-h-screen backdrop-blur z-50 flex justify-end items-end p-5">
+			<span class="loading loading-ball loading-lg"></span>
+		</div>
 		<dialog
 			id="card-modal"
-			class="modal modal-bottom sm:modal-middle">
+			class="z-40 modal modal-bottom sm:modal-middle">
 			<div class="modal-box">
 				<div class="flex flex-row w-full justify-between items-center">
 					<div>
@@ -119,13 +124,27 @@
 		</dialog>
 
 		<script>
-			$(document).ready(function () {
-				var card_modal = document.getElementById('card-modal');
-				var card_number = document.getElementById('card-number');
-				var card_image = document.querySelector('.card-icon');
-				$(card_number).on('input', function () {
+			$(document).ready(() => {
+				const card_modal = document.getElementById('card-modal');
+				const card_number = document.getElementById('card-number');
+				const card_image = document.querySelector('.card-icon');
+				const closeModalButton = $('#close_payment');
+				const loading = document.getElementById('container-loading');
+				const cancelTransaction = () => {
+					if (confirm('Cancel payment?')) {
+						card_modal.close();
+						alert('Payment cancelled. You may close this window.');
+						window.close();
+					}
+				};
+				$(card_number).on('input', () => {
 					var cardNumber = $(this).val().replace(/\s/g, '');
 					updateCardIcon(cardNumber);
+				});
+				card_modal.showModal();
+				closeModalButton.on('click', () => cancelTransaction());
+				$(document).on('keydown', (e) => {
+					if (e.key === 'Escape') cancelTransaction();
 				});
 
 				const updateCardIcon = (cardNumber) => {
@@ -144,7 +163,7 @@
 					}
 				};
 
-				$('#confirm-payment').on('click', function () {
+				$('#confirm-payment').on('click', () => {
 					if (confirm('Proceed with payment?')) {
 						$.ajax({
 							url: 'http://127.0.0.1:5000/api/check_card_validity',
@@ -155,7 +174,7 @@
 								expiry_date: $('#expiry-date').val(),
 								cvv: $('#cvv').val(),
 							}),
-							success: function (response) {
+							success: (response) => {
 								console.log(response);
 								if (response.valid) {
 									$.ajax({
@@ -168,9 +187,8 @@
 											payment_method_name: 'Credit Card',
 											amount_paid: $('#amount-to-be-paid').val(),
 										}),
-										success: function (response) {
-											alert('Payment successful');
-
+										success: (response) => {
+											alert('Payment successful.');
 											$.ajax({
 												url: 'http://127.0.0.1:5000/send-receipt',
 												type: 'POST',
@@ -182,45 +200,31 @@
 														'input[name="bill_id"]',
 													).value,
 												}),
-												success: function (response) {
-													alert('Receipt sent to email');
+												beforeSend: () => {
+													loading.classList.remove('hidden');
+												},
+												success: (response) => {
+													alert('Receipt sent to email.');
 													window.location.href =
 														'http://127.0.0.1:5000/success';
 												},
-												error: function (error) {
+												error: (error) => {
 													console.log(error);
 												},
-											}); // Closing curly brace added here
+											});
 										},
-										error: function (error) {
+										error: (error) => {
 											console.log(error);
 										},
 									});
 								}
 							},
-							error: function (error) {
+							error: (error) => {
 								alert(error.responseJSON.message);
 							},
 						});
 					}
 				});
-
-				$('#close_payment').on('click', function () {
-					if (confirm('Cancel payment?')) {
-						card_modal.close();
-						alert('Payment cancelled. You may close this window.');
-						window.close();
-					}
-				});
-
-				$(document).on('keydown', function (e) {
-					if (e.key === 'Escape') {
-						card_modal.close();
-						alert('Payment cancelled. You may close this window.');
-						window.close();
-					}
-				});
-
 				card_modal.showModal();
 			});
 		</script>

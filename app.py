@@ -8,11 +8,11 @@ from dotenv import load_dotenv
 import re
 from datetime import datetime
 import time
+from flask_socketio import SocketIO, emit
 
 load_dotenv()
 
 app = Flask(__name__)
-
 
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
@@ -22,10 +22,70 @@ app.config['MAIL_USE_TLS'] = True
 
 mail = Mail(app)
 
-CORS(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
+CORS(app, cors_allowed_origins="*") 
 
-@app.route('/api/get_all_announcements', methods=['GET'])
-def get_all_announcements():
+@socketio.on('connect')
+def handle_connect():
+  socketio.emit('connected', {'data': 'Connected to server'})
+  print('Client connected')
+
+@socketio.on('disconnect')
+def handle_disconnect():
+  print('Client disconnected')
+
+@socketio.on('mark_as_read')
+def mark_as_read(data):
+  try:
+    mark_as_read(data)
+    socketio.emit('mark_as_read', data)
+    socketio.emit('request_announcements')
+  except Exception as e:
+    print(e)
+
+@socketio.on('request_announcements')
+def send_announcements():
+  try:
+    announcements = fetch_announcement()
+    socketio.emit('receive_announcements', announcements)
+  except Exception as e:
+    print(e)
+
+@app.route('/mark_as_read', methods=['POST'])
+def mark_as_read():
+  try:
+    data = request.get_json()
+    announcement_id = data.get('announcement_id')
+    user_number = data.get('user_number')
+
+    db_connection = mysql.connector.connect(
+      user=os.getenv('USER'),
+      password=os.getenv('PASSWORD'),
+      port=os.getenv('PORT'),
+      database='svfc_finance'
+    )
+
+    with db_connection.cursor() as cursor:
+      query = "INSERT INTO announcement_read_status (user_number, announcement_id, read_status, read_at) VALUES (%s, %s, 1, NOW())"
+      cursor.execute(query, (user_number, announcement_id))
+    db_connection.commit()
+
+    socketio.emit('mark_as_read', {'announcement_id': announcement_id})
+    return jsonify({'message': 'Marked as read successfully.'}), 200
+  
+  except mysql.connector.Error as err:
+    if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
+      return jsonify({'error': 'Invalid credentials'}), 401
+    elif err.errno == errorcode.ER_BAD_DB_ERROR:
+      return jsonify({'error': 'Database does not exist'}), 404
+    else:
+      return jsonify({'error': 'Something went wrong'}), 500
+
+  except Exception as e:
+    return jsonify({'error': 'Something went wrong'}), 500
+
+
+def fetch_announcement():
   try:
     db_connection = mysql.connector.connect(
       user=os.getenv('USER'),
@@ -33,12 +93,28 @@ def get_all_announcements():
       port=os.getenv('PORT'),
       database='svfc_finance'
     )
-    time.sleep(3)
+    announcements = []
+    unread_announcements = []
+
     with db_connection.cursor() as cursor:
-      query = "SELECT * FROM admin_announcement"
+      query = "SELECT aa.announcement_id, aa.title, aa.content, aa.admin_number, aa.created_at FROM admin_announcement aa LEFT JOIN announcement_read_status ars ON aa.announcement_id = ars.announcement_id WHERE ars.read_status IS NULL OR ars.read_status = 0;"
       cursor.execute(query)
       rows = cursor.fetchall()
-    announcements = []
+    
+    for row in rows:
+      unread_announcements.append({
+        'announcement_id': row[0],
+        'title': row[1],
+        'content': row[2],
+        'admin_number': row[3],
+        'created_at': row[4].isoformat()
+      })
+
+    with db_connection.cursor() as cursor:
+      query = "SELECT aa.announcement_id, aa.title, aa.content, aa.admin_number, aa.created_at FROM admin_announcement aa JOIN announcement_read_status ars ON aa.announcement_id = ars.announcement_id WHERE ars.read_status = 1;"
+      cursor.execute(query)
+      rows = cursor.fetchall()
+
     for row in rows:
       announcements.append({
         'announcement_id': row[0],
@@ -47,7 +123,8 @@ def get_all_announcements():
         'admin_number': row[3],
         'created_at': row[4].isoformat()
       })
-    return jsonify({'announcements': announcements}), 200
+
+    return {'unread_announcements': unread_announcements, 'announcements': announcements}
 
   except mysql.connector.Error as err:
     if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
@@ -58,6 +135,54 @@ def get_all_announcements():
       return jsonify({'error': 'Something went wrong'}), 500
   except Exception as e:
     return jsonify({'error': 'Something went wrong'}), 500
+  
+
+
+@app.route('mark_as_read', methods=['POST'])
+def mark_as_read():
+  try:
+    data = request.get_json()
+    announcement_id = data.get('announcement_id')
+    user_number = data.get('user_number')
+
+    db_connection = mysql.connector.connect(
+      user=os.getenv('USER'),
+      password=os.getenv('PASSWORD'),
+      port=os.getenv('PORT'),
+      database='svfc_finance'
+    )
+
+    with db_connection.cursor() as cursor:
+      query = "INSERT INTO announcement_read_status (user_number, announcement_id, read_status, read_at) VALUES (%s, %s, 1, NOW())"
+      cursor.execute(query, (user_number, announcement_id))
+    db_connection.commit()
+
+    socketio.emit('mark_as_read', {'announcement_id': announcement_id})
+    return jsonify({'message': 'Marked as read successfully.'}), 200
+  
+  except mysql.connector.Error as err:
+    if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
+      return jsonify({'error': 'Invalid credentials'}), 401
+    elif err.errno == errorcode.ER_BAD_DB_ERROR:
+      return jsonify({'error': 'Database does not exist'}), 404
+    else:
+      print(err)
+      return jsonify({'error': 'Something went wrong'}), 500
+
+  except Exception as e:
+    return jsonify({'error': 'Something went wrong'}), 500
+
+@app.route('/api/get_all_announcements', methods=['GET'])
+def get_all_announcements():
+  try:
+    announcements = fetch_announcement()
+    print("Fetched Announcements:", announcements)
+    socketio.emit('new_announcement', {'announcements': announcements})
+    return jsonify(announcements), 200
+
+  except Exception as e:
+    return jsonify({'error': 'Something went wrong'}), 500
+
 
 @app.route('/api/create_announcement', methods=['POST'])
 def create_announcement():
@@ -72,12 +197,11 @@ def create_announcement():
     title = data.get('title')
     content = data.get('content')
     admin_number = data.get('admin_number')
-    print(data)
-  
     with db_connection.cursor() as cursor:
       query = "INSERT INTO admin_announcement (title, content, admin_number) VALUES (%s, %s, %s)"
       cursor.execute(query, (title, content, admin_number))
     db_connection.commit()
+    socketio.emit('new_announcement', {'title': title, 'content': content, 'admin_number': admin_number, 'created_at': datetime.now().isoformat()})
     return jsonify({'message': 'Announcement created successfully.'}), 200
 
   except mysql.connector.Error as err:
@@ -89,7 +213,6 @@ def create_announcement():
       print(err)
       return jsonify({'error': 'Something went wrong'}), 500
   except Exception as e:
-    print(e)
     return jsonify({'error': 'Something went wrong'}), 500
 
 
@@ -593,4 +716,4 @@ def success():
   return render_template('payment_success.html')
 
 if __name__ == '__main__':
-	app.run(debug=True)
+	socketio.run(app, host='127.0.0.1', port=5000, allow_unsafe_werkzeug=True)

@@ -9,45 +9,21 @@ from datetime import datetime
 from validate_email import validate_email
 from flask_cors import CORS
 
-# CREATE DEFINER=`root`@`localhost` PROCEDURE `get_user_details_for_login`(
-#     IN p_user_number VARCHAR(45),
-#     IN p_role ENUM('Admin', 'Student'),
-#     OUT p_avatar ENUM('avatar_1.png','avatar_2.png','avatar_3.png','avatar_4.png','avatar_5.png','avatar_6.png','avatar_7.png','avatar_8.png','avatar_9.png','avatar_10.png','avatar_11.png','avatar_12.png')
-# )
-# BEGIN
-# 	DECLARE is_valid_user BOOLEAN DEFAULT FALSE;
-#     -- Validate user_number exists and retrieve salt and avatar
-#   SELECT salt, avatar
-#        FROM users_table
-#        WHERE user_number = user_number AND role = p_role
-#        LIMIT 1;  -- Limit to one row
-
-#   SET is_valid_user = (FOUND_ROWS() > 0);  -- Check if a row was found
-
-#   IF is_valid_user THEN
-#     SELECT salt, avatar;  -- Return only salt and avatar
-#   ELSE
-#     SELECT NULL AS salt, NULL AS avatar;  -- Return NULL for non-existent user
-#   END IF;
-# END
-
-
 dotenv.load_dotenv()
 user_authentication = Blueprint('user_authentication', __name__)
 CORS(user_authentication, resources={r"/*": {"origins": "*"}})
-# Create a file handler
 file_handler = logging.FileHandler('authentication.log')
 file_handler.setLevel(logging.WARNING)
 
-# Create a console handler
 console_handler = logging.StreamHandler()
 console_handler.setLevel(logging.WARNING)
 
-# Create a logger and add the handlers
 logger = logging.getLogger()
 logger.setLevel(logging.WARNING)
 logger.addHandler(file_handler)
 logger.addHandler(console_handler)
+
+
 
 @user_authentication.route('/login', methods=['POST'])
 def login():
@@ -65,29 +41,90 @@ def login():
       port=os.getenv('PORT'),
       database='svfc_finance'
     )
-
+    # sanitize the input
+    role = escape(role)
+    password = escape(password)
+    user_number = escape(user_number)
+    if not role or not password or not user_number:
+      return jsonify({'error': 'Missing parameters', 'status': 400}), 400
+    if role not in ['Admin', 'Student']:
+      return jsonify({'error': 'Invalid role', 'status': 400}), 400
     try: 
       with connection.cursor() as cursor:
-        cursor.callproc('get_user_details_for_login', [user_number, role])
-        for result in cursor.stored_results():
-          user = result.fetchone()
-          if user is None:
-            return jsonify({'error': 'User does not exist'}), 404
-          salt = user['salt']
-          avatar = user['avatar']
-          hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt.encode('utf-8')).decode('utf-8')
-          if hashed_password == user['password']:
-            return jsonify({'avatar': avatar, 'user_number': user_number}), 200
-          else:
-            return jsonify({'error': 'Invalid credentials'}), 401
+        get_hash_salt = f"SELECT password, salt, avatar FROM users_table WHERE user_number = '{user_number}' AND role = '{role}'"
+        cursor.execute(get_hash_salt)
+        result = cursor.fetchone()
+        if not result:
+          return jsonify({'error': 'User not found', 'status': 404, 'message': 'User Not Found'}), 404
+        hash_password_database = result[0]
+        salt = result[1]
+        avatar = result[2]
+        password = password.encode('utf-8')
+        salt = salt.encode('utf-8')
+        hashed_password = bcrypt.hashpw(password, salt).decode('utf-8')
 
+        if hash_password_database == hashed_password:
+          args = [role, user_number] + [None]*12
+          result_args = cursor.callproc('fetch_user_info', args)
+          if role == 'Admin':
+            first_name, middle_name, last_name, email, phone, birthdate, home_address, barangay, city = result_args[2:11]
+            return jsonify({
+              'first_name': first_name,
+              'middle_name': middle_name,
+              'last_name': last_name,
+              'email': email,
+              'phone': phone,
+              'birthdate': birthdate,
+              'home_address': home_address,
+              'barangay': barangay,
+              'city': city,
+              'avatar': avatar,
+              'status': 200,
+              'message': 'Login successful'
+            }), 200
+          else:
+            first_name, middle_name, last_name, email, phone, birthdate, home_address, barangay, city, academic_program, year_level = result_args[2:14]
+            return jsonify({
+              'first_name': first_name,
+              'middle_name': middle_name,
+              'last_name': last_name,
+              'email': email,
+              'phone': phone,
+              'birthdate': birthdate,
+              'home_address': home_address,
+              'barangay': barangay,
+              'city': city,
+              'academic_program': academic_program,
+              'year_level': year_level,
+              'avatar': avatar,
+              'status': 200,
+              'message': 'Login successful'
+            }), 200
+        else:
+          return jsonify({'error': 'Incorrect password', 'status': 401, 'message': 'Incorrect Password'}), 401
+          # increase_attempts = f"SELECT attempts FROM login_attempts WHERE user_number = '{user_number}'"
+          # cursor.execute(increase_attempts)
+          # result = cursor.fetchone()
+          # if result:
+          #   attempts = result[0]
+          #   if attempts == 5:
+          #     return jsonify({'error': 'Account is locked'}), 403
+          #   else:
+          #     increase_attempts = f"UPDATE login_attempts SET attempts = attempts + 1 WHERE user_number = '{user_number}'"
+          #     cursor.execute(increase_attempts)
+          #     connection.commit()
+          #     return jsonify({'error': 'Incorrect password'}), 401
+          # else:
+          #   insert_attempts = f"INSERT INTO login_attempts (user_number, attempts) VALUES ('{user_number}', 1)"
+          #   cursor.execute(insert_attempts)
+          #   connection.commit()
+          #   return jsonify({'error': 'Incorrect password'}), 401
+        
     except Error as err:
       logging.exception('An error occurred')
       return jsonify({'error': 'Something went wrong'}), 500
-
     finally:
       connection.close()
-
   except Error as err:
     if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
       return jsonify({'error': 'Invalid credentials'}), 401
@@ -110,7 +147,9 @@ def register():
 
 def _handle_register_request():
   # Register a new user
-  # It requires the following parameters: role, password, user_number, first_name, middle_name, last_name, email, phone_number, birthdate, gender, home_address, barangay, city, and avatar
+  # It requires the following parameters: role, password, user_number, first_name, middle_name, last_name, email, phone_number, birthdate, gender, home_address, barangay, city, and avatar and conditional parameters: academic_program and year_level
+  # It returns a message if the user is registered successfully
+  # However, it returns an error based on what happened or what went wrong
   try:
     connection = connect(
       user=os.getenv('USER'),

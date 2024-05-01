@@ -9,6 +9,7 @@ import re
 from datetime import datetime
 import time
 from flask_socketio import SocketIO, emit
+from blueprints.user_authentication import user_authentication
 
 load_dotenv()
 
@@ -19,7 +20,7 @@ app.config['MAIL_PORT'] = 587
 app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
 app.config['MAIL_USE_TLS'] = True
-
+app.register_blueprint(user_authentication)
 mail = Mail(app)
 
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -137,40 +138,6 @@ def fetch_announcement():
     return jsonify({'error': 'Something went wrong'}), 500
   
 
-
-@app.route('mark_as_read', methods=['POST'])
-def mark_as_read():
-  try:
-    data = request.get_json()
-    announcement_id = data.get('announcement_id')
-    user_number = data.get('user_number')
-
-    db_connection = mysql.connector.connect(
-      user=os.getenv('USER'),
-      password=os.getenv('PASSWORD'),
-      port=os.getenv('PORT'),
-      database='svfc_finance'
-    )
-
-    with db_connection.cursor() as cursor:
-      query = "INSERT INTO announcement_read_status (user_number, announcement_id, read_status, read_at) VALUES (%s, %s, 1, NOW())"
-      cursor.execute(query, (user_number, announcement_id))
-    db_connection.commit()
-
-    socketio.emit('mark_as_read', {'announcement_id': announcement_id})
-    return jsonify({'message': 'Marked as read successfully.'}), 200
-  
-  except mysql.connector.Error as err:
-    if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-      return jsonify({'error': 'Invalid credentials'}), 401
-    elif err.errno == errorcode.ER_BAD_DB_ERROR:
-      return jsonify({'error': 'Database does not exist'}), 404
-    else:
-      print(err)
-      return jsonify({'error': 'Something went wrong'}), 500
-
-  except Exception as e:
-    return jsonify({'error': 'Something went wrong'}), 500
 
 @app.route('/api/get_all_announcements', methods=['GET'])
 def get_all_announcements():
@@ -587,7 +554,7 @@ def get_student_transaction():
     data = request.get_json()
     student_number = data.get('student_number')
     with db_connection.cursor() as cursor:
-      query = "SELECT p.payment_id, p.payment_date, p.amount, b.semester, pm.payment_method_type FROM payments_table p JOIN bills_table b ON p.bill_id = b.bills_id JOIN payment_method pm ON p.payment_method_id = pm.payment_method_id WHERE b.student_number = %s"
+      query = "SELECT p.payment_id, p.payment_date, p.amount, b.semester, pm.payment_method_type FROM payments_table p JOIN bills_table b ON p.bill_id = b.bills_id JOIN payment_method pm ON p.payment_method_id = pm.payment_method_id WHERE b.student_number = %s ORDER BY p.payment_date DESC"
       cursor.execute(query, (student_number,))
       rows = cursor.fetchall()
     transactions = []
@@ -716,4 +683,4 @@ def success():
   return render_template('payment_success.html')
 
 if __name__ == '__main__':
-	socketio.run(app, host='127.0.0.1', port=5000, allow_unsafe_werkzeug=True)
+	socketio.run(app, host='127.0.0.1', port=5000, allow_unsafe_werkzeug=True, debug=True)

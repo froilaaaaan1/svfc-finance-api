@@ -135,15 +135,20 @@ def _handle_register_request():
     avatar = data['avatar']
 
     if role not in ['Admin', 'Student']:
-      return jsonify({'error': 'Invalid role'}), 400
+      print("Invalid role")
+      return jsonify({'error': 'Invalid role', 'status_code': 400}), 400
     if not validate_email(email):
-      return jsonify({'error': 'Invalid email'}), 400
+      print("Invalid email")
+      return jsonify({'error': 'Invalid email', 'status_code': 400}), 400
     if gender not in ['Male', "Female", 'Non-Binary', 'Others']:
-      return jsonify({'error': 'Invalid Gender'}), 400
+      print("Invalid Gender")
+      return jsonify({'error': 'Invalid Gender', 'status_code': 400}), 400
     if len(password) < 8:
-      return jsonify({'error': 'Password must be at least 8 characters long'}), 400
+      print("Password must be at least 8 characters long")
+      return jsonify({'error': 'Password must be at least 8 characters long', 'status_code': 400}), 400
     if not role or not password or not user_number or not first_name or not middle_name or not last_name or not email or not phone_number or not birthdate or not gender or not home_address or not barangay or not city or not avatar:
-      return jsonify({'error': 'Missing parameters'}), 400
+      print("Missing parameters")
+      return jsonify({'error': 'Missing parameters', 'status_code': 400}), 400
 
     salt = bcrypt.gensalt()
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
@@ -217,6 +222,7 @@ def _handle_register_request():
       logging.exception('An error occurred')
       return jsonify({'error': 'Something went wrong'}), 500
   except ValueError as err:
+    print("ValueError: ", err)
     return jsonify({'error': 'Invalid date format'}), 400
   except:
     logging.exception('An error occurred')

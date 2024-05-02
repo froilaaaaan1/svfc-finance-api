@@ -72,6 +72,8 @@ def get_total_transactions():
       cursor.execute("""SELECT SUM(amount) FROM payments_table""")
       total_amount = cursor.fetchone()[0]
     connection.close()
+    # "{:,.2f}".format(total_amount)
+    total_amount = f'{total_amount:,.2f}'
     return make_response(jsonify({'total_amount': total_amount}), 200)
   except Error as e:
     logger.error(f'Error: {e}')
@@ -85,8 +87,6 @@ def get_all_transactions():
       password=os.getenv('PASSWORD'),
       port=os.getenv('PORT'),
       database='svfc_finance'
-
-    
     )
     transactions = []
     with connection.cursor() as cursor:
@@ -108,7 +108,6 @@ def get_all_transactions():
   except Error as e:
     logger.error(f'Error: {e}')
     return make_response(jsonify({'error': str(e)}), 500)
-
 
 @admin_routes.route('/dashboard/post-bill', methods=['POST'])
 def post_student_bill():
@@ -205,3 +204,34 @@ def post_student_bill():
       return jsonify({'message': 'Something went wrong'}), 500
   except Exception as e:
     return jsonify({'message': str(e)}), 500
+
+@admin_routes.route('/api/get_five_recent_payment', methods=['GET'])
+def get_five_recent_payment():
+  try:
+    connection = connect(
+      user=os.getenv('USER'),
+      password=os.getenv('PASSWORD'),
+      port=os.getenv('PORT'),
+      database='svfc_finance'
+    )
+    with connection.cursor() as cursor:
+      cursor.execute("""SELECT pt.amount, bt.semester, ut.user_number, pm.payment_method_type, pt.payment_date
+                FROM payments_table pt
+                JOIN bills_table bt ON pt.bill_id = bt.bills_id
+                JOIN users_table ut ON bt.student_number = ut.user_number
+                JOIN payment_method pm ON pm.payment_method_id = pt.payment_method_id
+                ORDER BY pt.payment_date DESC LIMIT 5""")
+      transactions = []
+      for row in cursor.fetchall():
+        transactions.append({
+          'amount': row[0],
+          'semester': row[1],
+          'student_number': row[2],
+          'payment_method': row[3],
+          'payment_date': row[4]
+        })
+    connection.close()
+    return make_response(jsonify(transactions), 200)
+  except Error as e:
+    logger.error(f'Error: {e}')
+    return make_response(jsonify({'error': str(e)}), 500)

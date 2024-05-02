@@ -12,6 +12,8 @@ from flask_socketio import SocketIO, emit
 from blueprints.admin_routes import admin_routes
 from blueprints.student_routes import student_routes
 from blueprints.user_authentication import user_authentication
+from blueprints.announcements import announcements
+from blueprints.reporting import reporting
 
 load_dotenv()
 
@@ -26,9 +28,11 @@ app.config['MAIL_USE_TLS'] = True
 app.register_blueprint(user_authentication)
 app.register_blueprint(admin_routes)
 app.register_blueprint(student_routes)
+app.register_blueprint(announcements)
+app.register_blueprint(reporting)
 mail = Mail(app)
-socketio = SocketIO(app, cors_allowed_origins="*")
 CORS(app, cors_allowed_origins="*") 
+socketio = SocketIO(app, cors_allowed_origins="*")  
 
 @socketio.on('connect')
 def handle_connect():
@@ -39,20 +43,13 @@ def handle_connect():
 def handle_disconnect():
   print('Client disconnected')
 
+
 @socketio.on('mark_as_read')
 def mark_as_read(data):
   try:
     mark_as_read(data)
     socketio.emit('mark_as_read', data)
     socketio.emit('request_announcements')
-  except Exception as e:
-    print(e)
-
-@socketio.on('request_announcements')
-def send_announcements():
-  try:
-    announcements = fetch_announcement()
-    socketio.emit('receive_announcements', announcements)
   except Exception as e:
     print(e)
 
@@ -106,73 +103,6 @@ def mark_as_read():
 
   except Exception as e:
     return jsonify({'error': 'Something went wrong'}), 500
-
-
-def fetch_announcement():
-  try:
-    db_connection = mysql.connector.connect(
-      user=os.getenv('USER'),
-      password=os.getenv('PASSWORD'),
-      port=os.getenv('PORT'),
-      database='svfc_finance'
-    )
-    announcements = []
-    unread_announcements = []
-
-    with db_connection.cursor() as cursor:
-      query = "SELECT aa.announcement_id, aa.title, aa.content, aa.admin_number, aa.created_at FROM admin_announcement aa LEFT JOIN announcement_read_status ars ON aa.announcement_id = ars.announcement_id WHERE ars.read_status IS NULL OR ars.read_status = 0;"
-      cursor.execute(query)
-      rows = cursor.fetchall()
-    
-    for row in rows:
-      unread_announcements.append({
-        'announcement_id': row[0],
-        'title': row[1],
-        'content': row[2],
-        'admin_number': row[3],
-        'created_at': row[4].isoformat()
-      })
-
-    with db_connection.cursor() as cursor:
-      query = "SELECT aa.announcement_id, aa.title, aa.content, aa.admin_number, aa.created_at FROM admin_announcement aa JOIN announcement_read_status ars ON aa.announcement_id = ars.announcement_id WHERE ars.read_status = 1;"
-      cursor.execute(query)
-      rows = cursor.fetchall()
-
-    for row in rows:
-      announcements.append({
-        'announcement_id': row[0],
-        'title': row[1],
-        'content': row[2],
-        'admin_number': row[3],
-        'created_at': row[4].isoformat()
-      })
-
-    return {'unread_announcements': unread_announcements, 'announcements': announcements}
-
-  except mysql.connector.Error as err:
-    if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-      return jsonify({'error': 'Invalid credentials'}), 401
-    elif err.errno == errorcode.ER_BAD_DB_ERROR:
-      return jsonify({'error': 'Database does not exist'}), 404
-    else:
-      return jsonify({'error': 'Something went wrong'}), 500
-  except Exception as e:
-    return jsonify({'error': 'Something went wrong'}), 500
-  
-
-
-@app.route('/api/get_all_announcements', methods=['GET'])
-def get_all_announcements():
-  try:
-    announcements = fetch_announcement()
-    print("Fetched Announcements:", announcements)
-    socketio.emit('new_announcement', {'announcements': announcements})
-    return jsonify(announcements), 200
-
-  except Exception as e:
-    return jsonify({'error': 'Something went wrong'}), 500
-
-
 
 @app.route('/api/check_card_validity', methods=['POST'])
 def check_card_validity():
@@ -242,40 +172,6 @@ def send_receipt():
     return jsonify({'error': 'Something went wrong'}), 500
 
 
-
-@app.route('/api-svfc-send-feedback', methods=['POST'])
-def send_feedback():
-  try:
-    data = request.get_json()
-    student_number = data.get('student_number')
-    content = data.get('content')
-
-    if not student_number or not content:
-      return jsonify({'error': 'Please provide student_number and content'}), 400
-    
-    db_connection = mysql.connector.connect(
-      user='root',
-      password='2003',
-      port=3306,
-      database='svfc_finance'
-    )
-    cursor = db_connection.cursor()
-    sql_statement = "INSERT INTO feedbacks_table(student_number, content) VALUES(%s, %s)"
-    cursor.execute(sql_statement, (student_number, content))
-    db_connection.commit()
-    cursor.close()
-    db_connection.close()
-    return jsonify({'message': 'Feedback inserted successfully.'}), 200
-    
-  except mysql.connector.Error as err:
-    if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-      return jsonify({'error': 'Invalid credentials'}), 401
-    elif err.errno == errorcode.ER_BAD_DB_ERROR:
-      return jsonify({'error': 'Database does not exist'}), 404
-    else:
-      return jsonify({'error': 'Something went wrong'}), 500
-  except Exception as e:
-    return jsonify({'error': 'Something went wrong'}), 500
 
 @app.route('/api-svfc-get-all-feedbacks', methods=['GET'])
 def get_feedback():

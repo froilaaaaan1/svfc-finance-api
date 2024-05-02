@@ -23,8 +23,6 @@ logger.setLevel(logging.WARNING)
 logger.addHandler(file_handler)
 logger.addHandler(console_handler)
 
-
-
 @user_authentication.route('/login', methods=['POST'])
 def login():
   # Login the user
@@ -102,23 +100,6 @@ def login():
             }), 200
         else:
           return jsonify({'error': 'Incorrect password', 'status': 401, 'message': 'Incorrect Password'}), 401
-          # increase_attempts = f"SELECT attempts FROM login_attempts WHERE user_number = '{user_number}'"
-          # cursor.execute(increase_attempts)
-          # result = cursor.fetchone()
-          # if result:
-          #   attempts = result[0]
-          #   if attempts == 5:
-          #     return jsonify({'error': 'Account is locked'}), 403
-          #   else:
-          #     increase_attempts = f"UPDATE login_attempts SET attempts = attempts + 1 WHERE user_number = '{user_number}'"
-          #     cursor.execute(increase_attempts)
-          #     connection.commit()
-          #     return jsonify({'error': 'Incorrect password'}), 401
-          # else:
-          #   insert_attempts = f"INSERT INTO login_attempts (user_number, attempts) VALUES ('{user_number}', 1)"
-          #   cursor.execute(insert_attempts)
-          #   connection.commit()
-          #   return jsonify({'error': 'Incorrect password'}), 401
         
     except Error as err:
       logging.exception('An error occurred')
@@ -193,6 +174,8 @@ def _handle_register_request():
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
     if role == 'Student':
         academic_program = data['academic_program']
+        if academic_program not in ['BSED English - Bachelor of Secondary Education major in English', 'BSED Filipino - Bachelor of Secondary Education major in Filipino', 'BSED Social Studies - Bachelor of Secondary Education major in Social Studies', 'BEED GenEd - Bachelor of Elementary Education major in General Education', 'BSIT - Bachelor of Science in Information Technology', 'BSHM - Bachelor of Science in Hospitality Management', 'BSA - Bachelor of Science in Accountancy']:
+          return jsonify({'error': 'Invalid academic program', 'status_code': 400}), 400
         year_level = data['year_level']
         sql = f"""
         CALL insert_user_profile(
@@ -273,3 +256,4 @@ def _build_cors_preflight_response():
     response.headers.add('Access-Control-Allow-Headers', "*")
     response.headers.add('Access-Control-Allow-Methods', "*")
     return response
+

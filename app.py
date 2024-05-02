@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, make_response
 from flask_mail import Mail, Message
 import os
 from flask_cors import CORS
@@ -7,13 +7,16 @@ from mysql.connector import errorcode
 from dotenv import load_dotenv
 import re
 from datetime import datetime
-import time
+from validate_email import validate_email
 from flask_socketio import SocketIO, emit
+from blueprints.admin_routes import admin_routes
+from blueprints.student_routes import student_routes
 from blueprints.user_authentication import user_authentication
 
 load_dotenv()
 
 app = Flask(__name__)
+__all__ = ['send_user_number']
 
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
@@ -21,8 +24,9 @@ app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
 app.config['MAIL_USE_TLS'] = True
 app.register_blueprint(user_authentication)
+app.register_blueprint(admin_routes)
+app.register_blueprint(student_routes)
 mail = Mail(app)
-
 socketio = SocketIO(app, cors_allowed_origins="*")
 CORS(app, cors_allowed_origins="*") 
 
@@ -51,6 +55,24 @@ def send_announcements():
     socketio.emit('receive_announcements', announcements)
   except Exception as e:
     print(e)
+
+@app.route('/send_mail', methods=['POST'])
+def send_mail():
+  try:
+    data = request.get_json()
+    email = data.get('email')
+    message = data.get('message')
+    subject = data.get('subject')
+    if not validate_email(email):
+      return jsonify({'error': 'Invalid email address'}), 400
+    if not message or not subject:
+      return jsonify({'error': 'Message and subject are required'}), 400
+    msg = Message('SVFC Finance', sender=os.getenv('MAIL_USERNAME'), recipients=[email])
+    msg.body = message
+    mail.send(msg)
+    return jsonify({'message': 'Email sent successfully.'}), 200
+  except Exception as e:
+    return jsonify({'error': 'Something went wrong'}), 500
 
 @app.route('/mark_as_read', methods=['POST'])
 def mark_as_read():

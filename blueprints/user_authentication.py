@@ -81,7 +81,7 @@ def login():
               'message': 'Login successful'
             }), 200
           else:
-            first_name, middle_name, last_name, email, phone, birthdate, home_address, barangay, city, academic_program, year_level = result_args[2:14]
+            first_name, middle_name, last_name, email, phone, birthdate, home_address, barangay, city, academic_program, year_level = result_args[2:13]
             return jsonify({
               'first_name': first_name,
               'middle_name': middle_name,

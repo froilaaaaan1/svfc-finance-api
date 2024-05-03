@@ -33,7 +33,7 @@ def get_dashboard_stats():
     )
     program_counts = {}
     programs = [
-      'BSED English - Bachelor of Secondary Education major in English', 
+      'BSED English - Bachelor of Secondary Education major in English',
       'BSED Filipino - Bachelor of Secondary Education major in Filipino',
       'BSED Social Studies - Bachelor of Secondary Education major in Social Studies',
       'BEED GenEd - Bachelor of Elementary Education major in General Education',
@@ -41,7 +41,7 @@ def get_dashboard_stats():
       'BSHM - Bachelor of Science in Hospitality Management',
       'BSA - Bachelor of Science in Accountancy'
     ]
-    
+
     for program in programs:
       cursor = connection.cursor()
       args = [program, 0]
@@ -51,12 +51,12 @@ def get_dashboard_stats():
       cursor.close()
 
     connection.close()
-    
+
     return make_response(jsonify(program_counts), 200)
   except Error as e:
     logger.error(f'Error: {e}')
     return make_response(jsonify({'error': str(e)}), 500)
-  
+
 
 @admin_routes.route('/dashboard/statistics/total_transactions', methods=['GET'])
 def get_total_transactions():
@@ -135,7 +135,7 @@ def post_student_bill():
     insurance = data.get('insurance')
     students_development_programs_activities = data.get('students_development_programs_activities')
     misc_fees = data.get('misc_fees', [])
-    
+
     item_data = {
       'internet_connectivity': internet_connectivity,
       'modules_ebook': modules_ebook,
@@ -159,7 +159,7 @@ def post_student_bill():
       for item in misc_fees:
         if not item.get('remarks'):
           return jsonify({'message': 'Remarks is required for every misc fee item'}), 400
-    
+
     if not student_number or not internet_connectivity or not modules_ebook or not portal or not e_library or not admission_registration or not library or not student_org or not medical_dental or not guidance or not student_affairs or not org_t_shirt or not school_uniform_1_set or not pe_activity_uniform_1_set or not major_uniform_1_set or not major_laboratory or not insurance or not students_development_programs_activities:
       return jsonify({'message': 'Missing Fields Detected.'}), 400
     db_connection = connect(
@@ -183,15 +183,15 @@ def post_student_bill():
     insert_in_bills_table_statement = "INSERT INTO bills_table(student_number, semester, total_amount) VALUES(%s, %s, %s)"
     cursor.execute(insert_in_bills_table_statement, (student_number, semester, grand_total))
     bill_id = cursor.lastrowid
-    
+
     insert_in_bill_items_table_statement = "INSERT INTO bill_items_table (bill_id, item_name, amount, remarks) VALUES (%s, %s, %s, %s)"
     for item in misc_fees:
       cursor.execute(insert_in_bill_items_table_statement, (bill_id, 'misc', int(item['amount']), item['remarks']))
-    
+
     item_data = {key: value for key, value in data.items() if key not in ['student_number', 'number_of_units', 'misc_fees', 'semester']}
     for item_name, amount in item_data.items():
       cursor.execute(insert_in_bill_items_table_statement, (bill_id, item_name, int(amount), ''))
-    
+
     db_connection.commit()
     cursor.close()
     return jsonify({'message': 'Bill inserted successfully.'}), 200

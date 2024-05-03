@@ -88,7 +88,7 @@ def login():
               'middle_name': middle_name,
               'last_name': last_name,
               'email': email,
-              'phone': phone,
+              'phone_number': phone,
               'birthdate': birthdate,
               'gender': gender,
               'home_address': home_address,

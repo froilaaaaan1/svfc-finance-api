@@ -14,6 +14,7 @@ from blueprints.student_routes import student_routes
 from blueprints.user_authentication import user_authentication
 from blueprints.announcements import announcements
 from blueprints.reporting import reporting
+from blueprints.conversation_routes import conversation_routes
 
 load_dotenv()
 
@@ -30,9 +31,10 @@ app.register_blueprint(admin_routes)
 app.register_blueprint(student_routes)
 app.register_blueprint(announcements)
 app.register_blueprint(reporting)
+app.register_blueprint(conversation_routes)
 mail = Mail(app)
-CORS(app, cors_allowed_origins="*") 
-socketio = SocketIO(app, cors_allowed_origins="*")  
+CORS(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 @socketio.on('connect')
 def handle_connect():
@@ -92,7 +94,7 @@ def mark_as_read():
 
     socketio.emit('mark_as_read', {'announcement_id': announcement_id})
     return jsonify({'message': 'Marked as read successfully.'}), 200
-  
+
   except mysql.connector.Error as err:
     if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
       return jsonify({'error': 'Invalid credentials'}), 401
@@ -161,7 +163,7 @@ def send_receipt():
     student_email = student_info[1]
 
     html_email = render_template('send_receipt_template.html', student_name=f'{first_name} {last_name}', student_number=student_number, amount=amount, semester=semester, payment_method_name=payment_method_name, total_amount=total_amount, bill_date=bill_date)
-    
+
     msg = Message('SVFC Payment Receipt', sender=os.getenv('MAIL_USERNAME'), recipients=[student_email])
     msg.html = html_email
     mail.send(msg)
@@ -225,14 +227,14 @@ def fetch_semesters():
     ]
     semesters_without_bills = list(set(all_semesters) - semesters_with_bills)
     options = [{'semester': semester} for semester in semesters_without_bills]
-    
+
     return jsonify(options), 200
 
   except Exception as e:
     return jsonify({'error': str(e)}), 500
 
   finally:
-    db_connection.close() 
+    db_connection.close()
 
 
 @app.route('/api-svfc-total-student-bills', methods=['POST'])
@@ -303,7 +305,7 @@ def get_student_bills():
         query = "SELECT * FROM bill_items_table WHERE bill_id = %s"
         cursor.execute(query, (bill_id,))
         items = cursor.fetchall()
-      
+
       bill_items = []
       for item in items:
         bill_items.append({
@@ -311,7 +313,7 @@ def get_student_bills():
           'amount': item[3],
           'remarks': item[4]
         })
-      
+
       bills.append({
         'bill_id': bill_id,
         'semester': semester,
@@ -398,7 +400,7 @@ def submit_payment():
     db_connection.commit()
     cursor.close()
     return jsonify({'message': 'Payment inserted successfully.'}), 200
-  
+
   except mysql.connector.Error as err:
     if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
       return jsonify({'error': 'Invalid credentials'}), 401

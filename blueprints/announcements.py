@@ -38,6 +38,39 @@ def create_announcement():
     print(e)
     return jsonify({'error': 'Something went wrong'}), 500
 
+@announcements.route('/api/announcement/delete', methods=['DELETE'])
+def delete_announcement():
+  try:
+    db_connection = connect(
+      user=os.getenv('USER'),
+      password=os.getenv('PASSWORD'),
+      port=os.getenv('PORT'),
+      database='svfc_finance'
+    )
+    data = request.get_json()
+    announcement_id = data.get('announcement_id')
+    if not announcement_id:
+      return jsonify({'error': 'Invalid announcement_id'}), 400
+    with db_connection.cursor() as cursor:
+      query = "DELETE FROM admin_announcement WHERE announcement_id = %s"
+      affected_rows = cursor.execute(query, (announcement_id,))
+      if affected_rows == 0:
+        return jsonify({'error': 'Announcement does not exist'}), 404
+    db_connection.commit()
+    return jsonify({'message': 'Announcement deleted successfully'}), 200
+  except Error as err:
+    if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
+      return jsonify({'error': 'Invalid credentials'}), 401
+    elif err.errno == errorcode.ER_BAD_DB_ERROR:
+      return jsonify({'error': 'Database does not exist'}), 404
+    else:
+      return jsonify({'error': 'Something went wrong'}), 500
+  except Exception as e:
+    return jsonify({'error': 'Something went wrong'}), 500
+  finally:
+    if db_connection.is_connected():
+      db_connection.close()
+
 def fetch_announcement():
   try:
     db_connection = connect(
@@ -53,7 +86,7 @@ def fetch_announcement():
       query = "SELECT aa.announcement_id, aa.title, aa.content, aa.admin_number, aa.created_at FROM admin_announcement aa LEFT JOIN announcement_read_status ars ON aa.announcement_id = ars.announcement_id WHERE ars.read_status IS NULL OR ars.read_status = 0;"
       cursor.execute(query)
       rows = cursor.fetchall()
-    
+
     for row in rows:
       unread_announcements.append({
         'announcement_id': row[0],
@@ -121,31 +154,6 @@ def get_all_announcements():
       return jsonify({'error': 'Invalid credentials'}), 401
     elif err.errno == errorcode.ER_BAD_DB_ERROR:
       print('Database does not exist')
-      return jsonify({'error': 'Database does not exist'}), 404
-    else:
-      return jsonify({'error': 'Something went wrong'}), 500
-  except Exception as e:
-    return jsonify({'error': 'Something went wrong'}), 500
-  
-@announcements.route('/api/announcement/delete', methods=['GET'])
-def delete_announcement():
-  try:
-    db_connection = connect(
-      user=os.getenv('USER'),
-      password=os.getenv('PASSWORD'),
-      port=os.getenv('PORT'),
-      database='svfc_finance'
-    )
-    announcement_id = request.args.get('announcement_id')
-    with db_connection.cursor() as cursor:
-      query = "DELETE FROM admin_announcement WHERE announcement_id = %s"
-      cursor.execute(query, (announcement_id,))
-    db_connection.commit()
-    return jsonify({'message': 'Announcement deleted successfully'}), 200
-  except Error as err:
-    if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-      return jsonify({'error': 'Invalid credentials'}), 401
-    elif err.errno == errorcode.ER_BAD_DB_ERROR:
       return jsonify({'error': 'Database does not exist'}), 404
     else:
       return jsonify({'error': 'Something went wrong'}), 500

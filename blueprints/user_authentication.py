@@ -47,7 +47,7 @@ def login():
       return jsonify({'error': 'Missing parameters', 'status': 400}), 400
     if role not in ['Admin', 'Student']:
       return jsonify({'error': 'Invalid role', 'status': 400}), 400
-    try: 
+    try:
       with connection.cursor() as cursor:
         get_hash_salt = f"SELECT password, salt, avatar FROM users_table WHERE user_number = '{user_number}' AND role = '{role}'"
         cursor.execute(get_hash_salt)
@@ -65,14 +65,15 @@ def login():
           args = [role, user_number] + [None]*12
           result_args = cursor.callproc('fetch_user_info', args)
           if role == 'Admin':
-            first_name, middle_name, last_name, email, phone, birthdate, home_address, barangay, city = result_args[2:11]
+            first_name, middle_name, last_name, email, phone_number, birthdate, gender, home_address, barangay, city = result_args[2:12]
             return jsonify({
               'first_name': first_name,
               'middle_name': middle_name,
               'last_name': last_name,
               'email': email,
-              'phone': phone,
+              'phone_number': phone_number,
               'birthdate': birthdate,
+              'gender': gender,
               'home_address': home_address,
               'barangay': barangay,
               'city': city,
@@ -81,7 +82,7 @@ def login():
               'message': 'Login successful'
             }), 200
           else:
-            first_name, middle_name, last_name, email, phone, birthdate, home_address, barangay, city, academic_program, year_level = result_args[2:13]
+            first_name, middle_name, last_name, email, phone, birthdate, gender, home_address, barangay, city, academic_program, year_level = result_args[2:14]
             return jsonify({
               'first_name': first_name,
               'middle_name': middle_name,
@@ -89,6 +90,7 @@ def login():
               'email': email,
               'phone': phone,
               'birthdate': birthdate,
+              'gender': gender,
               'home_address': home_address,
               'barangay': barangay,
               'city': city,
@@ -98,9 +100,10 @@ def login():
               'status': 200,
               'message': 'Login successful'
             }), 200
+
         else:
           return jsonify({'error': 'Incorrect password', 'status': 401, 'message': 'Incorrect Password'}), 401
-        
+
     except Error as err:
       logging.exception('An error occurred')
       return jsonify({'error': 'Something went wrong'}), 500
@@ -117,7 +120,7 @@ def login():
   except:
     logging.exception('An error occurred')
     return jsonify({'message': 'Internal Server Error'}), 500
-  
+
 
 @user_authentication.route('/register', methods=['POST'])
 def register():
@@ -179,48 +182,48 @@ def _handle_register_request():
         year_level = data['year_level']
         sql = f"""
         CALL insert_user_profile(
-          '{user_number}', 
-          '{hashed_password}', 
-          '{role}', 
-          '{avatar}', 
-          '{salt.decode('utf-8')}', 
-          '{first_name}', 
-          '{middle_name}', 
-          '{last_name}', 
-          '{email}', 
-          '{phone_number}', 
-          '{birthdate}', 
-          '{gender}', 
-          '{home_address}', 
-          '{barangay}', 
-          '{city}', 
-          '{academic_program}', 
+          '{user_number}',
+          '{hashed_password}',
+          '{role}',
+          '{avatar}',
+          '{salt.decode('utf-8')}',
+          '{first_name}',
+          '{middle_name}',
+          '{last_name}',
+          '{email}',
+          '{phone_number}',
+          '{birthdate}',
+          '{gender}',
+          '{home_address}',
+          '{barangay}',
+          '{city}',
+          '{academic_program}',
           '{year_level}'
         )
         """
     else:
         sql = f"""
         CALL insert_user_profile(
-          '{user_number}', 
-          '{hashed_password}', 
-          '{role}', 
-          '{avatar}', 
-          '{salt.decode('utf-8')}', 
-          '{first_name}', 
+          '{user_number}',
+          '{hashed_password}',
+          '{role}',
+          '{avatar}',
+          '{salt.decode('utf-8')}',
+          '{first_name}',
           '{middle_name}',
-          '{last_name}', 
-          '{email}', 
-          '{phone_number}', 
-          '{birthdate}', 
-          '{gender}', 
-          '{home_address}', 
-          '{barangay}', 
+          '{last_name}',
+          '{email}',
+          '{phone_number}',
+          '{birthdate}',
+          '{gender}',
+          '{home_address}',
+          '{barangay}',
           '{city}',
           NULL,
           NULL
         )
         """
-    
+
     try:
       with connection.cursor() as cursor:
         cursor.execute(sql)
@@ -249,11 +252,10 @@ def _handle_register_request():
   except:
     logging.exception('An error occurred')
     return jsonify({'message': 'Internal Server Error'}), 500
-  
+
 def _build_cors_preflight_response():
     response = make_response()
     response.headers.add("Access-Control-Allow-Origin", "*")
     response.headers.add('Access-Control-Allow-Headers', "*")
     response.headers.add('Access-Control-Allow-Methods', "*")
     return response
-

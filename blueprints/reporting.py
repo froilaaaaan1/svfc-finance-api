@@ -1,7 +1,6 @@
-from flask import Blueprint, make_response, request, jsonify
+from flask import Blueprint, request, jsonify
 from mysql.connector import Error, connect, errorcode
 from dotenv import load_dotenv
-import os
 from flask_cors import CORS
 import time
 
@@ -18,7 +17,7 @@ def send_feedback():
     time.sleep(20)
     if not student_number or not content:
       return jsonify({'error': 'Please provide student_number and content'}), 400
-    
+
     db_connection = connect(
       user='root',
       password='2003',
@@ -32,7 +31,7 @@ def send_feedback():
     cursor.close()
     db_connection.close()
     return jsonify({'message': 'Feedback inserted successfully.'}), 200
-    
+
   except Error as err:
     if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
       return jsonify({'error': 'Invalid credentials'}), 401

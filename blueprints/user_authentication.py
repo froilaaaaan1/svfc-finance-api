@@ -5,7 +5,6 @@ import os
 import logging
 import bcrypt
 from html import escape
-from datetime import datetime
 from validate_email import validate_email
 from flask_cors import CORS
 

@@ -3,9 +3,6 @@ from mysql.connector import Error, connect, errorcode
 import dotenv
 import os
 import logging
-from html import escape
-from datetime import datetime
-from validate_email import validate_email
 from flask_cors import CORS
 
 dotenv.load_dotenv()

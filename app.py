@@ -15,6 +15,7 @@ from blueprints.user_authentication import user_authentication
 from blueprints.announcements import announcements
 from blueprints.reporting import reporting
 from blueprints.conversation_routes import conversation_routes
+from blueprints.feedbacks_routes import feedback_routes
 
 load_dotenv()
 
@@ -32,6 +33,7 @@ app.register_blueprint(student_routes)
 app.register_blueprint(announcements)
 app.register_blueprint(reporting)
 app.register_blueprint(conversation_routes)
+app.register_blueprint(feedback_routes)
 mail = Mail(app)
 CORS(app, cors_allowed_origins="*")
 socketio = SocketIO(app, cors_allowed_origins="*")
